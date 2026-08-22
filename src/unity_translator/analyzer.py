@@ -5,6 +5,9 @@ from pathlib import Path
 
 import UnityPy
 
+from .holyknight import PROFILE as HOLYKNIGHT_PROFILE
+from .holyknight import detect as detect_holyknight
+
 
 def find_data_dir(game_path: Path) -> Path | None:
     candidates = sorted(path for path in game_path.glob("*_Data") if path.is_dir())
@@ -78,3 +81,20 @@ def analyze_game(game_path: Path) -> dict:
         "textmeshpro_references": bool(re.search(r"textmesh|tmp_", searchable)),
         "compatibility": "experimental" if streaming.is_dir() else "detected_unsupported",
     }
+
+
+def detect_profile(game_path: Path) -> dict | None:
+    """Suggest a supported profile from the game's on-disk structure."""
+    analysis = analyze_game(game_path)
+    if not analysis.get("is_unity"):
+        return None
+    data_dir = Path(analysis["data_dir"])
+    if detect_holyknight(data_dir):
+        return dict(HOLYKNIGHT_PROFILE)
+    dialogue = data_dir / "StreamingAssets" / "dialogue.csv"
+    if dialogue.is_file():
+        return {
+            "extractor": "streamingassets-csv",
+            "files": [{"glob": "dialogue.csv", "columns": [1], "header": True}],
+        }
+    return None

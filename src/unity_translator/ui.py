@@ -9,6 +9,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
+from .analyzer import detect_profile
 from .pipeline import (
     analyze,
     create_project,
@@ -124,9 +125,11 @@ def save_tutorial_preference(path: Path = SETTINGS_PATH, show_on_startup: bool =
 def format_analysis(result: dict) -> str:
     if not result.get("is_unity"):
         return f"No se detectó un juego Unity: {result.get('reason', 'motivo desconocido')}"
+    version = result.get("unity_version", "unknown")
+    unity_label = f"Unity {version} detectado" if version != "unknown" else "Unity detectado (versión desconocida)"
     return "\n".join(
         [
-            f"Unity {result.get('unity_version', 'desconocida')} detectado",
+            unity_label,
             f"Ejecución: {result.get('runtime', 'desconocida')}",
             f"StreamingAssets: {'sí' if result.get('streaming_assets') else 'no'}",
             f"Assets detectados: {len(result.get('asset_files', []))}",
@@ -393,6 +396,7 @@ class DesktopApp:
         self.game = tk.StringVar()
         self.project = tk.StringVar()
         self.profile = tk.StringVar()
+        self._detected_profile: dict | None = None
         self.csv_path = tk.StringVar()
         self.build_path = tk.StringVar(value="Todavía no se generó una copia")
         self.stage_status = tk.StringVar(value="Listo")
@@ -696,6 +700,7 @@ class DesktopApp:
 
     def _select_profile(self) -> None:
         if selected := filedialog.askopenfilename(title="Seleccionar perfil de extracción", filetypes=[("JSON", "*.json")]):
+            self._detected_profile = None
             self.profile.set(selected)
 
     def _select_csv(self) -> None:
@@ -749,14 +754,39 @@ class DesktopApp:
             messagebox.showerror(f"Falló {stage}", message)
 
     def _analyze(self) -> None:
-        self._run("Análisis", lambda: format_analysis(analyze(_required_path(self.game.get(), "Juego"))))
+        def operation() -> str:
+            game = _required_path(self.game.get(), "Juego")
+            result = analyze(game)
+            detected = detect_profile(Path(game))
+            if detected:
+                self.root.after(0, lambda: self._set_detected_profile(detected))
+            message = format_analysis(result)
+            if detected:
+                message += f"\nPerfil automático: {detected['extractor']}"
+            else:
+                message += "\nPerfil automático: no disponible"
+            return message
+
+        self._run("Análisis", operation)
+
+    def _set_detected_profile(self, profile: dict) -> None:
+        self._detected_profile = profile
+        self.profile.set(f"[Automático] {profile['extractor']}")
 
     def _create_project(self) -> None:
         def operation() -> str:
             game = _required_path(self.game.get(), "Juego")
             project = _required_path(self.project.get(), "Proyecto")
-            profile_path = _required_path(self.profile.get(), "Perfil")
-            profile = json.loads(Path(profile_path).read_text(encoding="utf-8"))
+            profile_value = self.profile.get().strip()
+            if profile_value.startswith("[Automático]") and self._detected_profile:
+                profile = self._detected_profile
+            elif profile_value:
+                profile_path = _required_path(profile_value, "Perfil")
+                profile = json.loads(Path(profile_path).read_text(encoding="utf-8"))
+            else:
+                profile = detect_profile(Path(game))
+                if profile is None:
+                    raise ValueError("No se pudo detectar un perfil compatible; seleccioná uno manualmente")
             created = create_project(game, project, profile)
             return f"Proyecto creado en {created}"
 

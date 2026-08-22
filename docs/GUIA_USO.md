@@ -501,8 +501,17 @@ El ejecutable es portable, pero no está firmado digitalmente. Comprueba que lo 
 ## 9. Limitaciones actuales
 
 - La interfaz está disponible en español.
-- El soporte de extracción depende de perfiles explícitos.
-- Actualmente se soportan CSV en `StreamingAssets` y `TextAsset` JSON.
+- La aplicación intenta detectar automáticamente perfiles conocidos después de analizar el juego.
+- Actualmente se soportan CSV en `StreamingAssets`, `TextAsset` JSON y tablas TSV cifradas `.dat` de Holy Knight Ricca.
 - MonoBehaviour custom y otros formatos serializados requieren soporte adicional.
 - La compatibilidad es experimental hasta completar pruebas con más juegos reales.
 - El ejecutable portable es Windows x64.
+
+## 10. Perfiles automáticos
+
+Después de pulsar **Analizar**, la aplicación puede completar el campo de perfil como `[Automático]`. Si aparece, no necesitas seleccionar un JSON manualmente. Se reconocen, entre otros:
+
+- `StreamingAssets/dialogue.csv`.
+- Holy Knight Ricca: archivos `.dat` de texto cifrado bajo `StreamingAssets/Lang/en`, incluso en builds Unity IL2CPP que no contienen archivos `.assets` serializados.
+
+Cuando no se reconoce un formato, la aplicación mantiene el selector manual y muestra que no hay un perfil automático disponible, en vez de elegir un perfil incompatible.

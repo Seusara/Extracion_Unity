@@ -11,6 +11,8 @@ from pathlib import Path
 import UnityPy
 
 from .analyzer import analyze_game
+from .holyknight import extract as extract_holyknight
+from .holyknight import inject_file as inject_holyknight_file
 from .providers.manual import ManualProvider
 from .storage import read_json, sha256_file, sha256_text, write_json_atomic
 from .unity_json import apply_translations, extract_json_entries
@@ -54,8 +56,11 @@ def create_project(game_path: str | Path, project_path: str | Path, profile: dic
         missing = [field for field in required if field not in profile]
         if missing:
             raise ValueError(f"Unity JSON profile missing fields: {', '.join(missing)}")
+    elif extractor == "holyknight-encrypted-tsv":
+        if not isinstance(profile.get("source_root"), str) or not profile["source_root"]:
+            raise ValueError("Holy Knight profile must declare source_root")
     else:
-        raise ValueError("Supported extractors: streamingassets-csv, unity-textasset-json")
+        raise ValueError("Supported extractors: streamingassets-csv, unity-textasset-json, holyknight-encrypted-tsv")
     for folder in ("originals", "translations", "builds", "backups", "logs"):
         (project / folder).mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -229,6 +234,8 @@ def extract(project_path: str | Path) -> list[dict]:
         entries, source_files = _extract_streaming_csv(project, manifest)
     elif manifest["extractor"]["name"] == "unity-textasset-json":
         entries, source_files = _extract_unity_json(project, manifest)
+    elif manifest["extractor"]["name"] == "holyknight-encrypted-tsv":
+        entries, source_files = extract_holyknight(project, manifest)
     else:
         raise ValueError(f"Unsupported project extractor: {manifest['extractor']['name']}")
     manifest["source_files"] = source_files
@@ -433,6 +440,8 @@ def inject(project_path: str | Path) -> Path:
                 _inject_csv_file(path, entries)
             elif entries[0]["asset_type"] == "TextAssetJSON":
                 _inject_unity_json_file(path, entries, manifest["profile"])
+            elif entries[0]["asset_type"] == "HolyKnightEncryptedTSV":
+                inject_holyknight_file(path, entries)
             else:
                 raise ValueError(f"Unsupported asset type: {entries[0]['asset_type']}")
         final.parent.mkdir(parents=True, exist_ok=False)
