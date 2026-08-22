@@ -20,7 +20,7 @@ python -m pytest -q
 unity-translator-gui
 ```
 
-La ventana recorre el mismo pipeline del CLI y abre un editor manual con búsqueda, filtros por estado, edición de traducciones y marcado intencionalmente vacío. Al primer inicio muestra un tutorial opcional de cuatro pasos, que también queda accesible desde **Ver tutorial**. La UI llama al core; no contiene lógica de extracción o reinyección.
+La ventana recorre el mismo pipeline del CLI y abre un editor manual con búsqueda, filtros por estado, edición de traducciones y marcado intencionalmente vacío. Al primer inicio muestra un tutorial opcional de cuatro pasos con capturas reales de ERICA como orientación visual; también queda accesible desde **Ver tutorial**. La UI llama al core; no contiene lógica de extracción o reinyección.
 
 ## Flujo CLI
 

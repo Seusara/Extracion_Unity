@@ -30,6 +30,8 @@ Editor interno:
 Tutorial inicial:
 
 - cuatro pasos breves que recorren selección, extracción, edición/validación e inyección segura;
+- dos capturas locales de ERICA: vista de gameplay y detalle de texto localizado;
+- las capturas son ejemplos de orientación, no acoplan el pipeline a ERICA;
 - navegación anterior/siguiente y opción para omitir;
 - preferencia persistente `No volver a mostrar al iniciar`;
 - acceso permanente desde `Ver tutorial`;
@@ -37,7 +39,7 @@ Tutorial inicial:
 
 ## Verificación
 
-- Suite completa: 23 tests aprobados.
+- Suite completa: 24 tests aprobados.
 - Paquete instalable en modo editable.
 - Entry point: `unity-translator-gui`.
 - Prueba de construcción real de widgets: 8 acciones principales.
