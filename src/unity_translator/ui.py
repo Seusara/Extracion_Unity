@@ -74,6 +74,14 @@ STATUS_FILTERS = {
 STATUS_LABELS = {value: label for label, value in STATUS_FILTERS.items() if value != "all"}
 
 
+def _required_path(value: str, label: str) -> str:
+    """Validate a path field before dispatching work to the pipeline."""
+    normalized = value.strip()
+    if not normalized or normalized in {".", "./", ".\\"}:
+        raise ValueError(f"Seleccioná una ruta válida para {label}; no puede estar vacía ni ser '.'")
+    return normalized
+
+
 def open_folder(path: str | Path, launcher: Callable[[str], object] | None = None) -> Path:
     target = Path(path).resolve()
     if not target.is_dir():
@@ -741,29 +749,34 @@ class DesktopApp:
             messagebox.showerror(f"Falló {stage}", message)
 
     def _analyze(self) -> None:
-        self._run("Análisis", lambda: format_analysis(analyze(self.game.get())))
+        self._run("Análisis", lambda: format_analysis(analyze(_required_path(self.game.get(), "Juego"))))
 
     def _create_project(self) -> None:
         def operation() -> str:
-            profile = json.loads(Path(self.profile.get()).read_text(encoding="utf-8"))
-            created = create_project(self.game.get(), self.project.get(), profile)
+            game = _required_path(self.game.get(), "Juego")
+            project = _required_path(self.project.get(), "Proyecto")
+            profile_path = _required_path(self.profile.get(), "Perfil")
+            profile = json.loads(Path(profile_path).read_text(encoding="utf-8"))
+            created = create_project(game, project, profile)
             return f"Proyecto creado en {created}"
 
         self._run("Proyecto", operation)
 
     def _extract(self) -> None:
-        self._run("Extracción", lambda: f"Se extrajeron {len(extract(self.project.get()))} cadenas")
+        self._run("Extracción", lambda: f"Se extrajeron {len(extract(_required_path(self.project.get(), 'Proyecto')))} cadenas")
 
     def _export(self) -> None:
         def operation() -> str:
-            target = export_csv(self.project.get(), self.csv_path.get())
+            project = _required_path(self.project.get(), "Proyecto")
+            target = export_csv(project, _required_path(self.csv_path.get(), "CSV"))
             return f"CSV exportado en {target}"
 
         self._run("CSV", operation)
 
     def _import(self) -> None:
         def operation() -> str:
-            result = import_csv(self.project.get(), self.csv_path.get())
+            project = _required_path(self.project.get(), "Proyecto")
+            result = import_csv(project, _required_path(self.csv_path.get(), "CSV"))
             return (
                 f"Importadas: {result['imported']} | Pendientes: {result['pending']} | "
                 f"Vacías intencionales: {result['intentionally_empty']}"
@@ -772,11 +785,11 @@ class DesktopApp:
         self._run("CSV", operation)
 
     def _validate(self) -> None:
-        self._run("Validación", lambda: format_validation(validate(self.project.get())))
+        self._run("Validación", lambda: format_validation(validate(_required_path(self.project.get(), "Proyecto"))))
 
     def _inject(self) -> None:
         def operation() -> str:
-            build = inject(self.project.get())
+            build = inject(_required_path(self.project.get(), "Proyecto"))
             self.root.after(0, lambda build=build: self.build_path.set(str(build)))
             return f"Copia generada y verificada en {build}"
 
@@ -784,7 +797,7 @@ class DesktopApp:
 
     def _open_build_folder(self) -> None:
         try:
-            build = open_folder(latest_build(self.project.get()))
+            build = open_folder(latest_build(_required_path(self.project.get(), "Proyecto")))
             self.build_path.set(str(build))
             self._append(f"[Resultado] Carpeta abierta: {build}")
         except Exception as error:
@@ -792,7 +805,7 @@ class DesktopApp:
 
     def _launch_build(self) -> None:
         try:
-            executable = start_executable(launchable_executable(self.project.get()))
+            executable = start_executable(launchable_executable(_required_path(self.project.get(), "Proyecto")))
             self.build_path.set(str(executable.parent))
             self._append(f"[Resultado] Juego iniciado: {executable.name}")
         except Exception as error:
@@ -800,7 +813,8 @@ class DesktopApp:
 
     def _restore_build(self) -> None:
         try:
-            build = latest_build(self.project.get())
+            project = _required_path(self.project.get(), "Proyecto")
+            build = latest_build(project)
         except Exception as error:
             messagebox.showerror("No se pudo restaurar", str(error))
             return
@@ -812,14 +826,14 @@ class DesktopApp:
             return
 
         def operation() -> str:
-            restored, destination = restore_latest_build(self.project.get())
+            restored, destination = restore_latest_build(project)
             return f"Se restauraron {restored} archivos en {destination}"
 
         self._run("Restauración", operation)
 
     def _open_editor(self) -> None:
         try:
-            EditorWindow(self.root, self.project.get())
+            EditorWindow(self.root, _required_path(self.project.get(), "Proyecto"))
         except Exception as error:
             messagebox.showerror("No se pudo abrir el editor", str(error))
 

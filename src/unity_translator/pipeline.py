@@ -106,6 +106,39 @@ def _find_text_asset(env, selector: dict):
     return matches[0]
 
 
+def _resolve_asset_file(data_dir: Path, configured_asset_file: str) -> Path:
+    """Resolve a profile asset path while tolerating Unity subfolders.
+
+    Unity builds can place the same-named asset under ``il2cpp_data`` or
+    another data subdirectory. The explicit profile path remains preferred;
+    basename fallback is allowed only when it identifies one file.
+    """
+    configured = data_dir / configured_asset_file
+    if configured.is_file():
+        return configured
+
+    basename = Path(configured_asset_file).name
+    candidates = sorted(path for path in data_dir.rglob(basename) if path.is_file())
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        listed = ", ".join(str(path.relative_to(data_dir)) for path in candidates)
+        raise FileNotFoundError(
+            f"Profile asset_file '{configured_asset_file}' matched multiple Unity asset files: {listed}. "
+            "Specify the relative path in the profile."
+        )
+
+    asset_candidates = sorted(
+        str(path.relative_to(data_dir))
+        for path in data_dir.rglob("*")
+        if path.is_file() and (path.suffix.lower() in {".assets", ".bundle"} or "sharedassets" in path.name.lower())
+    )
+    hint = f" Available Unity assets: {', '.join(asset_candidates[:20])}." if asset_candidates else ""
+    raise FileNotFoundError(
+        f"Unity asset file not found: {configured}. Check the profile asset_file and the game's *_Data folder.{hint}"
+    )
+
+
 def _close_unity_environment(env) -> None:
     """Release UnityPy file handles so Windows can replace the source asset."""
     for asset_file in env.files.values():
@@ -168,10 +201,9 @@ def _extract_streaming_csv(project: Path, manifest: dict) -> tuple[list[dict], d
 def _extract_unity_json(project: Path, manifest: dict) -> tuple[list[dict], dict[str, str]]:
     profile = manifest["profile"]
     data_dir = Path(manifest["analysis"]["data_dir"])
-    source = data_dir / profile["asset_file"]
-    if not source.is_file():
-        raise FileNotFoundError(f"Unity asset file not found: {source}")
-    relative_game = f"{manifest['analysis']['data_dir_name']}/{profile['asset_file']}"
+    source = _resolve_asset_file(data_dir, profile["asset_file"])
+    relative_asset = source.relative_to(data_dir).as_posix()
+    relative_game = f"{manifest['analysis']['data_dir_name']}/{relative_asset}"
     snapshot = project / "originals" / Path(relative_game)
     snapshot.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, snapshot)

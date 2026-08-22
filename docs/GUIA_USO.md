@@ -450,9 +450,12 @@ La interfaz gráfica simplifica esta última operación usando **Restaurar**, qu
 
 - El perfil no corresponde al juego.
 - El `asset_file` es incorrecto.
+- En builds IL2CPP, el asset puede estar dentro de `il2cpp_data`; la versión actual intenta localizar automáticamente un único archivo con el mismo nombre base.
 - El `path_id` no coincide.
 - El nombre del `TextAsset` o las claves JSON son diferentes.
 - El CSV no está dentro de la ruta indicada por el perfil.
+
+Si el archivo no existe, el registro muestra los assets Unity encontrados para que puedas corregir `asset_file` en el perfil. Si hay varios archivos con el mismo nombre, debes indicar la ruta relativa exacta.
 
 ### “El CSV no se puede importar”
 
