@@ -14,6 +14,14 @@ python -m pip install -e .
 python -m pytest -q
 ```
 
+## Interfaz mínima
+
+```bash
+unity-translator-gui
+```
+
+La ventana recorre el mismo pipeline del CLI y abre un editor manual con búsqueda, filtros por estado, edición de traducciones y marcado intencionalmente vacío. La UI llama al core; no contiene lógica de extracción o reinyección.
+
 ## Flujo CLI
 
 ```bash
@@ -77,7 +85,7 @@ La app modifica el `TextAsset` únicamente en el build generado, guarda UnityPy 
 - Core, IR JSON, CSV estricto, validación, backup, build separado, restore y CLI: implementados.
 - TextAsset JSON con UnityPy: implementado y probado estructuralmente sobre ERICA Knight of the Sun 0.1.9.2.
 - Otros assets serializados y MonoBehaviour custom: pendientes.
-- UI mínima: pendiente hasta ampliar y consolidar el core.
+- UI mínima y editor manual: implementados con Tkinter.
 - Compatibilidad real: `experimental` hasta completar playtesting del juego resultante.
 
 Ver `docs/` para arquitectura, mapeo de la skill y plan.
