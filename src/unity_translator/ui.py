@@ -21,11 +21,14 @@ from .pipeline import (
 )
 
 SETTINGS_PATH = Path(os.getenv("LOCALAPPDATA", Path.home() / ".config")) / "unity-translator" / "settings.json"
+ASSET_DIR = Path(__file__).parent / "assets" / "tutorial"
 
 TUTORIAL_STEPS = (
     {
         "title": "1. Seleccioná el juego",
         "body": "Elegí la carpeta que contiene el ejecutable y su carpeta *_Data. Analizar solo inspecciona: no modifica archivos.",
+        "image": "erica-gameplay.png",
+        "caption": "Ejemplo real: ERICA Knight of the Sun en ejecución.",
     },
     {
         "title": "2. Creá el proyecto y extraé",
@@ -34,6 +37,8 @@ TUTORIAL_STEPS = (
     {
         "title": "3. Traducí y validá",
         "body": "Usá el Editor o exportá el CSV. Después importá y validá IDs, placeholders, tags y hashes.",
+        "image": "erica-text-example.png",
+        "caption": "Ejemplo real de texto localizado dentro del juego.",
     },
     {
         "title": "4. Inyectá sobre una copia",
@@ -99,6 +104,7 @@ def filter_entries(entries: list[dict], query: str, status: str = "all") -> list
 class TutorialDialog:
     def __init__(self, parent: tk.Misc) -> None:
         self.page = 0
+        self.preview_image: tk.PhotoImage | None = None
         self.dont_show_again = tk.BooleanVar(value=not load_tutorial_preference())
         self.window = tk.Toplevel(parent)
         self.window.title("Primeros pasos")
@@ -113,16 +119,20 @@ class TutorialDialog:
         self.counter.grid(row=0, column=0, sticky="w")
         self.title = ttk.Label(frame, font=("Segoe UI", 17, "bold"))
         self.title.grid(row=1, column=0, sticky="w", pady=(8, 8))
+        self.preview = ttk.Label(frame)
+        self.preview.grid(row=2, column=0, pady=(0, 6))
+        self.caption = ttk.Label(frame, style="Secondary.TLabel")
+        self.caption.grid(row=3, column=0, sticky="w", pady=(0, 12))
         self.body = ttk.Label(frame, wraplength=500, justify="left")
-        self.body.grid(row=2, column=0, sticky="w", pady=(0, 22))
+        self.body.grid(row=4, column=0, sticky="w", pady=(0, 22))
         ttk.Checkbutton(
             frame,
             text="No volver a mostrar al iniciar",
             variable=self.dont_show_again,
-        ).grid(row=3, column=0, sticky="w")
+        ).grid(row=5, column=0, sticky="w")
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=4, column=0, sticky="ew", pady=(20, 0))
+        buttons.grid(row=6, column=0, sticky="ew", pady=(20, 0))
         buttons.columnconfigure(1, weight=1)
         ttk.Button(buttons, text="Omitir", command=self.close).grid(row=0, column=0)
         self.previous = ttk.Button(buttons, text="Anterior", command=self._previous)
@@ -141,6 +151,17 @@ class TutorialDialog:
         self.counter.configure(text=f"Paso {self.page + 1} de {len(TUTORIAL_STEPS)}")
         self.title.configure(text=step["title"])
         self.body.configure(text=step["body"])
+        if image_name := step.get("image"):
+            self.preview_image = tk.PhotoImage(file=ASSET_DIR / image_name)
+            self.preview.configure(image=self.preview_image)
+            self.preview.grid()
+            self.caption.configure(text=step.get("caption", ""))
+            self.caption.grid()
+        else:
+            self.preview_image = None
+            self.preview.configure(image="")
+            self.preview.grid_remove()
+            self.caption.grid_remove()
         self.previous.configure(state="normal" if self.page else "disabled")
         self.next.configure(text="Empezar" if self.page == len(TUTORIAL_STEPS) - 1 else "Siguiente")
 
