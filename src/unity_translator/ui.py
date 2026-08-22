@@ -707,6 +707,20 @@ class DesktopApp:
         if selected := filedialog.askopenfilename(title="Seleccionar CSV de traducción", filetypes=[("CSV", "*.csv")]):
             self.csv_path.set(selected)
 
+    def _select_csv_destination(self) -> None:
+        project = self.project.get().strip()
+        initialdir = project if project and Path(project).is_dir() else None
+        selected = filedialog.asksaveasfilename(
+            title="Guardar CSV de traducción",
+            initialdir=initialdir,
+            initialfile="translations.csv",
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv")],
+        )
+        if selected:
+            self.csv_path.set(selected)
+            self._export()
+
     def _show_startup_tutorial(self) -> None:
         if load_tutorial_preference():
             self._show_tutorial()
@@ -801,6 +815,9 @@ class DesktopApp:
             target = export_csv(project, _required_path(self.csv_path.get(), "CSV"))
             return f"CSV exportado en {target}"
 
+        if not self.csv_path.get().strip():
+            self._select_csv_destination()
+            return
         self._run("CSV", operation)
 
     def _import(self) -> None:
