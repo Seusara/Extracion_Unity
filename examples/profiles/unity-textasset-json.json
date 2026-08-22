@@ -1,0 +1,11 @@
+{
+  "extractor": "unity-textasset-json",
+  "asset_file": "sharedassets0.assets",
+  "textasset": {
+    "name": "TextData",
+    "path_id": 554
+  },
+  "list_key": "texts",
+  "id_field": "dataID",
+  "text_field": "ENG"
+}

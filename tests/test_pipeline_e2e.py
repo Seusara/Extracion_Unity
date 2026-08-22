@@ -9,6 +9,7 @@ from unity_translator.pipeline import (
     extract,
     import_csv,
     inject,
+    restore,
     validate,
 )
 
@@ -64,4 +65,9 @@ def test_streamingassets_csv_translation_end_to_end(tmp_path: Path) -> None:
 
     ir = json.loads((project / "translation.json").read_text(encoding="utf-8"))
     assert ir["entries"][0]["status"] == "translated"
-    assert (project / "backups").is_dir()
+    backups = list((project / "backups").iterdir())
+    assert len(backups) == 1
+
+    restored = restore(project, backups[0].name, build)
+    assert restored == 1
+    assert patched.read_text(encoding="utf-8-sig") == "key,text,command\nstart,Start Game,show\nquit,Quit,close\n"

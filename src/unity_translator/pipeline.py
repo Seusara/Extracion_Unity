@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import csv
+import json
 import shutil
+import tempfile
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+import UnityPy
+
 from .analyzer import analyze_game
+from .providers.manual import ManualProvider
 from .storage import read_json, sha256_file, sha256_text, write_json_atomic
+from .unity_json import apply_translations, extract_json_entries
 from .validation import validate_pair
 
 TOOL_VERSION = "0.1.0"
@@ -39,10 +45,17 @@ def create_project(game_path: str | Path, project_path: str | Path, profile: dic
     analysis = analyze_game(game)
     if not analysis["is_unity"]:
         raise ValueError(analysis["reason"])
-    if profile.get("extractor") != "streamingassets-csv":
-        raise ValueError("MVP only supports extractor 'streamingassets-csv'")
-    if not isinstance(profile.get("files"), list) or not profile["files"]:
-        raise ValueError("Profile must declare at least one file rule")
+    extractor = profile.get("extractor")
+    if extractor == "streamingassets-csv":
+        if not isinstance(profile.get("files"), list) or not profile["files"]:
+            raise ValueError("Profile must declare at least one file rule")
+    elif extractor == "unity-textasset-json":
+        required = ("asset_file", "list_key", "id_field", "text_field", "textasset")
+        missing = [field for field in required if field not in profile]
+        if missing:
+            raise ValueError(f"Unity JSON profile missing fields: {', '.join(missing)}")
+    else:
+        raise ValueError("Supported extractors: streamingassets-csv, unity-textasset-json")
     for folder in ("originals", "translations", "builds", "backups", "logs"):
         (project / folder).mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -51,7 +64,7 @@ def create_project(game_path: str | Path, project_path: str | Path, profile: dic
         "created_at": _now(),
         "game_path": str(game),
         "analysis": analysis,
-        "extractor": {"name": "streamingassets-csv", "version": 1, "support": "experimental"},
+        "extractor": {"name": extractor, "version": 1, "support": "experimental"},
         "profile": deepcopy(profile),
         "source_files": {},
     }
@@ -77,14 +90,36 @@ def _source_paths(manifest: dict, rule: dict) -> list[Path]:
     return paths
 
 
-def extract(project_path: str | Path) -> list[dict]:
-    project, manifest = _project(project_path)
+def _find_text_asset(env, selector: dict):
+    matches = []
+    for obj in env.objects:
+        if obj.type.name != "TextAsset":
+            continue
+        if "path_id" in selector and obj.path_id != selector["path_id"]:
+            continue
+        data = obj.read()
+        if "name" in selector and getattr(data, "m_Name", "") != selector["name"]:
+            continue
+        matches.append((obj, data))
+    if len(matches) != 1:
+        raise ValueError(f"Expected exactly one TextAsset, found {len(matches)} for {selector}")
+    return matches[0]
+
+
+def _close_unity_environment(env) -> None:
+    """Release UnityPy file handles so Windows can replace the source asset."""
+    for asset_file in env.files.values():
+        stream = getattr(getattr(asset_file, "reader", None), "stream", None)
+        if stream is not None and hasattr(stream, "close"):
+            stream.close()
+
+
+def _extract_streaming_csv(project: Path, manifest: dict) -> tuple[list[dict], dict[str, str]]:
     data_dir_name = manifest["analysis"]["data_dir_name"]
     streaming = Path(manifest["analysis"]["data_dir"]) / "StreamingAssets"
     entries: list[dict] = []
     seen: set[str] = set()
     source_files: dict[str, str] = {}
-
     for rule in manifest["profile"]["files"]:
         columns = rule.get("columns")
         if not isinstance(columns, list) or not columns or not all(isinstance(col, int) and col >= 0 for col in columns):
@@ -127,6 +162,43 @@ def extract(project_path: str | Path) -> list[dict]:
                             "delimiter": rule.get("delimiter", ","),
                         },
                     })
+    return entries, source_files
+
+
+def _extract_unity_json(project: Path, manifest: dict) -> tuple[list[dict], dict[str, str]]:
+    profile = manifest["profile"]
+    data_dir = Path(manifest["analysis"]["data_dir"])
+    source = data_dir / profile["asset_file"]
+    if not source.is_file():
+        raise FileNotFoundError(f"Unity asset file not found: {source}")
+    relative_game = f"{manifest['analysis']['data_dir_name']}/{profile['asset_file']}"
+    snapshot = project / "originals" / Path(relative_game)
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, snapshot)
+    env = UnityPy.load(str(source))
+    obj, data = _find_text_asset(env, profile["textasset"])
+    script = data.m_Script.decode("utf-8-sig") if isinstance(data.m_Script, bytes) else data.m_Script
+    document = json.loads(script)
+    entries = extract_json_entries(
+        document,
+        source_file=relative_game,
+        path_id=obj.path_id,
+        list_key=profile["list_key"],
+        id_field=profile["id_field"],
+        text_field=profile["text_field"],
+    )
+    _close_unity_environment(env)
+    return entries, {relative_game: sha256_file(source)}
+
+
+def extract(project_path: str | Path) -> list[dict]:
+    project, manifest = _project(project_path)
+    if manifest["extractor"]["name"] == "streamingassets-csv":
+        entries, source_files = _extract_streaming_csv(project, manifest)
+    elif manifest["extractor"]["name"] == "unity-textasset-json":
+        entries, source_files = _extract_unity_json(project, manifest)
+    else:
+        raise ValueError(f"Unsupported project extractor: {manifest['extractor']['name']}")
     manifest["source_files"] = source_files
     manifest["extracted_at"] = _now()
     ir = {"schema_version": 1, "extractor": manifest["extractor"], "entries": entries}
@@ -181,23 +253,17 @@ def import_csv(project_path: str | Path, csv_path: str | Path) -> dict:
         raise ValueError(f"Missing CSV IDs: {', '.join(missing[:5])}")
 
     counts = {"imported": 0, "pending": 0, "intentionally_empty": 0}
+    provider = ManualProvider()
     for entry_id, entry in expected.items():
         row = imported[entry_id]
         translation = row["translation"]
         intentional = row["intentionally_empty"].strip().lower() == "true"
-        if intentional:
-            if translation:
-                raise ValueError(f"Intentionally empty row contains translation: {entry_id}")
-            entry["translated_text"] = ""
-            entry["status"] = "intentionally_empty"
-            counts["intentionally_empty"] += 1
-        elif translation:
-            entry["translated_text"] = translation
-            entry["status"] = "translated"
+        provider.apply(entry, translation, intentionally_empty=intentional)
+        if entry["status"] == "translated":
             counts["imported"] += 1
+        elif entry["status"] == "intentionally_empty":
+            counts["intentionally_empty"] += 1
         else:
-            entry["translated_text"] = ""
-            entry["status"] = "untranslated"
             counts["pending"] += 1
     write_json_atomic(project / "translation.json", ir)
     _log(project, "CSV", f"Imported {counts['imported']} translations; {counts['pending']} pending")
@@ -228,6 +294,61 @@ def validate(project_path: str | Path) -> dict:
     return report
 
 
+def _inject_csv_file(path: Path, entries: list[dict]) -> None:
+    metadata = entries[0]["metadata"]
+    with path.open("r", encoding=metadata["encoding"], newline="") as handle:
+        rows = [list(row) for row in csv.reader(handle, delimiter=metadata["delimiter"])]
+    for entry in entries:
+        row = entry["metadata"]["row"] - 1
+        column = entry["metadata"]["column"]
+        if rows[row][column] != entry["original_text"]:
+            raise ValueError(f"Staging original mismatch for ID: {entry['id']}")
+        rows[row][column] = entry["translated_text"]
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding=metadata["encoding"], newline="") as handle:
+        csv.writer(handle, delimiter=metadata["delimiter"]).writerows(rows)
+    temporary.replace(path)
+    with path.open("r", encoding=metadata["encoding"], newline="") as handle:
+        verified = list(csv.reader(handle, delimiter=metadata["delimiter"]))
+    for entry in entries:
+        actual = verified[entry["metadata"]["row"] - 1][entry["metadata"]["column"]]
+        if actual != entry["translated_text"]:
+            raise RuntimeError(f"Post-injection verification failed: {entry['id']}")
+
+
+def _inject_unity_json_file(path: Path, entries: list[dict], profile: dict) -> None:
+    env = UnityPy.load(str(path))
+    before_count = len(list(env.objects))
+    _obj, data = _find_text_asset(env, profile["textasset"])
+    script = data.m_Script.decode("utf-8-sig") if isinstance(data.m_Script, bytes) else data.m_Script
+    expected = json.loads(script)
+    changed = apply_translations(expected, entries)
+    if changed != len(entries):
+        raise RuntimeError(f"Expected {len(entries)} JSON changes, applied {changed}")
+    data.m_Script = json.dumps(expected, ensure_ascii=False, separators=(",", ":"))
+    data.save()
+    with tempfile.TemporaryDirectory() as output_dir:
+        env.save(pack="none", out_path=output_dir)
+        generated = Path(output_dir) / path.name
+        if not generated.is_file():
+            raise RuntimeError(f"UnityPy did not generate expected file: {generated}")
+        _close_unity_environment(env)
+        shutil.move(str(generated), str(path))
+
+    check = UnityPy.load(str(path))
+    if len(list(check.objects)) != before_count:
+        raise RuntimeError("Unity object count changed during injection")
+    _verified_obj, verified_data = _find_text_asset(check, profile["textasset"])
+    verified_script = (
+        verified_data.m_Script.decode("utf-8-sig")
+        if isinstance(verified_data.m_Script, bytes)
+        else verified_data.m_Script
+    )
+    if json.loads(verified_script) != expected:
+        raise RuntimeError("Post-injection JSON verification failed")
+    _close_unity_environment(check)
+
+
 def inject(project_path: str | Path) -> Path:
     project, manifest = _project(project_path)
     report = validate(project)
@@ -250,27 +371,14 @@ def inject(project_path: str | Path) -> Path:
                 grouped.setdefault(entry["source_file"], []).append(entry)
         for relative, entries in grouped.items():
             path = staging / Path(relative)
-            metadata = entries[0]["metadata"]
-            with path.open("r", encoding=metadata["encoding"], newline="") as handle:
-                rows = [list(row) for row in csv.reader(handle, delimiter=metadata["delimiter"])]
-            for entry in entries:
-                row = entry["metadata"]["row"] - 1
-                column = entry["metadata"]["column"]
-                if rows[row][column] != entry["original_text"]:
-                    raise ValueError(f"Staging original mismatch for ID: {entry['id']}")
-                rows[row][column] = entry["translated_text"]
-            temporary = path.with_suffix(path.suffix + ".tmp")
-            with temporary.open("w", encoding=metadata["encoding"], newline="") as handle:
-                csv.writer(handle, delimiter=metadata["delimiter"]).writerows(rows)
-            temporary.replace(path)
-            with path.open("r", encoding=metadata["encoding"], newline="") as handle:
-                verified = list(csv.reader(handle, delimiter=metadata["delimiter"]))
-            for entry in entries:
-                actual = verified[entry["metadata"]["row"] - 1][entry["metadata"]["column"]]
-                if actual != entry["translated_text"]:
-                    raise RuntimeError(f"Post-injection verification failed: {entry['id']}")
+            if entries[0]["asset_type"] == "StreamingAssetsCSV":
+                _inject_csv_file(path, entries)
+            elif entries[0]["asset_type"] == "TextAssetJSON":
+                _inject_unity_json_file(path, entries, manifest["profile"])
+            else:
+                raise ValueError(f"Unsupported asset type: {entries[0]['asset_type']}")
         final.parent.mkdir(parents=True, exist_ok=False)
-        staging.replace(final)
+        shutil.move(str(staging), str(final))
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         shutil.rmtree(final.parent, ignore_errors=True)
@@ -278,3 +386,29 @@ def inject(project_path: str | Path) -> Path:
     _log(project, "INJECT", f"Injected {sum(len(v) for v in grouped.values())} strings into {final}")
     _log(project, "VERIFY", "Completed cell-level verification")
     return final
+
+
+def restore(project_path: str | Path, backup_name: str, destination: str | Path) -> int:
+    project, _ = _project(project_path)
+    backups_root = (project / "backups").resolve()
+    backup = (backups_root / backup_name).resolve()
+    if backup.parent != backups_root or not backup.is_dir():
+        raise ValueError(f"Backup not found: {backup_name}")
+    backup_manifest = read_json(backup / "manifest.json")
+    destination_path = Path(destination).resolve()
+    if not destination_path.is_dir():
+        raise FileNotFoundError(f"Restore destination not found: {destination_path}")
+
+    restored = 0
+    for relative, expected_hash in backup_manifest["source_files"].items():
+        source = backup / "originals" / Path(relative)
+        if not source.is_file() or sha256_file(source) != expected_hash:
+            raise ValueError(f"Backup hash mismatch: {relative}")
+        target = destination_path / Path(relative)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(target.suffix + ".restore.tmp")
+        shutil.copy2(source, temporary)
+        temporary.replace(target)
+        restored += 1
+    _log(project, "RESTORE", f"Restored {restored} files from {backup_name} into {destination_path}")
+    return restored

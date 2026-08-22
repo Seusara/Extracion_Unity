@@ -7,7 +7,7 @@ name = "unity-translator"
 version = "0.1.0"
 description = "Deterministic offline Unity translation pipeline"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["UnityPy>=1.25,<2"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

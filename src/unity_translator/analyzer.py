@@ -3,10 +3,28 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import UnityPy
+
 
 def find_data_dir(game_path: Path) -> Path | None:
     candidates = sorted(path for path in game_path.glob("*_Data") if path.is_dir())
     return candidates[0] if len(candidates) == 1 else None
+
+
+def _detect_unity_version(data_dir: Path) -> str:
+    managers = data_dir / "globalgamemanagers"
+    if not managers.is_file():
+        return "unknown"
+    try:
+        env = UnityPy.load(str(managers))
+        versions = [getattr(asset, "unity_version", None) for asset in env.assets]
+        for asset_file in env.files.values():
+            stream = getattr(getattr(asset_file, "reader", None), "stream", None)
+            if stream is not None and hasattr(stream, "close"):
+                stream.close()
+        return next((version for version in versions if version), "unknown")
+    except Exception:
+        return "unknown"
 
 
 def analyze_game(game_path: Path) -> dict:
@@ -50,7 +68,7 @@ def analyze_game(game_path: Path) -> dict:
         "data_dir_name": data_dir.name,
         "is_unity": True,
         "runtime": runtime,
-        "unity_version": "unknown",
+        "unity_version": _detect_unity_version(data_dir),
         "managed": managed.is_dir(),
         "streaming_assets": streaming.is_dir(),
         "resources": (data_dir / "Resources").is_dir(),

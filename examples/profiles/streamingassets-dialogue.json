@@ -1,0 +1,12 @@
+{
+  "extractor": "streamingassets-csv",
+  "files": [
+    {
+      "glob": "dialogue.csv",
+      "columns": [1],
+      "header": true,
+      "encoding": "utf-8-sig",
+      "delimiter": ","
+    }
+  ]
+}
