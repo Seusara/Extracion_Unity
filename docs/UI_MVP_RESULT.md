@@ -27,14 +27,23 @@ Editor interno:
 - estado `intentionally_empty` explícito;
 - persistencia atómica en Translation IR mediante el core.
 
+Tutorial inicial:
+
+- cuatro pasos breves que recorren selección, extracción, edición/validación e inyección segura;
+- navegación anterior/siguiente y opción para omitir;
+- preferencia persistente `No volver a mostrar al iniciar`;
+- acceso permanente desde `Ver tutorial`;
+- no bloquea el uso posterior de la aplicación.
+
 ## Verificación
 
-- Suite completa: 21 tests aprobados.
+- Suite completa: 23 tests aprobados.
 - Paquete instalable en modo editable.
 - Entry point: `unity-translator-gui`.
 - Prueba de construcción real de widgets: 8 acciones principales.
 - Editor abierto programáticamente sobre el proyecto ERICA real: 942 filas mostradas.
 - La aplicación visible se lanzó con las rutas de ERICA precargadas para prueba manual.
+- Tutorial verificado: `Paso 1 de 4`, título y navegación renderizados correctamente.
 
 ## Límite
 
