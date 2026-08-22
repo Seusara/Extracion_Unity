@@ -33,7 +33,8 @@ UnityTranslator-0.1.0-windows-x64/
 ├── UnityTranslator.exe
 ├── profiles/
 │   ├── streamingassets-dialogue.json
-│   └── unity-textasset-json.json
+│   ├── unity-textasset-json.json
+│   └── ERICA-TextData.json
 └── LEEME.txt
 ```
 
