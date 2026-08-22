@@ -9,7 +9,10 @@ from unity_translator.pipeline import (
     extract,
     import_csv,
     inject,
+    latest_build,
+    launchable_executable,
     restore,
+    restore_latest_build,
     validate,
 )
 
@@ -19,6 +22,7 @@ def test_streamingassets_csv_translation_end_to_end(tmp_path: Path) -> None:
     data = game / "SampleGame_Data"
     streaming = data / "StreamingAssets"
     streaming.mkdir(parents=True)
+    (game / "SampleGame.exe").write_bytes(b"fixture executable")
     (data / "Managed").mkdir()
     source = streaming / "dialogue.csv"
     source.write_text("key,text,command\nstart,Start Game,show\nquit,Quit,close\n", encoding="utf-8-sig")
@@ -53,6 +57,8 @@ def test_streamingassets_csv_translation_end_to_end(tmp_path: Path) -> None:
     assert report["errors"] == 0
 
     build = inject(project)
+    assert latest_build(project) == build
+    assert launchable_executable(project) == build / "SampleGame.exe"
     patched = build / "SampleGame_Data" / "StreamingAssets" / "dialogue.csv"
     with patched.open("r", encoding="utf-8-sig", newline="") as handle:
         patched_rows = list(csv.reader(handle))
@@ -68,6 +74,7 @@ def test_streamingassets_csv_translation_end_to_end(tmp_path: Path) -> None:
     backups = list((project / "backups").iterdir())
     assert len(backups) == 1
 
-    restored = restore(project, backups[0].name, build)
+    restored, restored_build = restore_latest_build(project)
     assert restored == 1
+    assert restored_build == build
     assert patched.read_text(encoding="utf-8-sig") == "key,text,command\nstart,Start Game,show\nquit,Quit,close\n"

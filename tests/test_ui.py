@@ -1,4 +1,9 @@
-from unity_translator.ui import format_analysis, format_validation
+from unity_translator.ui import APP_ICON, format_analysis, format_validation
+
+
+def test_desktop_app_has_a_packaged_windows_icon() -> None:
+    assert APP_ICON.name == "app-icon.ico"
+    assert APP_ICON.is_file()
 
 
 def test_format_analysis_reports_detected_runtime_and_sources() -> None:

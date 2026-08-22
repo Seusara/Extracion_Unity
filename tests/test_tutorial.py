@@ -7,7 +7,7 @@ def test_tutorial_is_brief_and_covers_the_complete_workflow() -> None:
     assert len(TUTORIAL_STEPS) == 4
     content = " ".join(f"{step['title']} {step['body']}" for step in TUTORIAL_STEPS).casefold()
 
-    for concept in ("juego", "extra", "csv", "valid", "inyect", "copia"):
+    for concept in ("juego", "extra", "csv", "valid", "inyect", "copia", "ejecut", "restaur"):
         assert concept in content
 
 

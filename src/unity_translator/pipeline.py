@@ -414,6 +414,31 @@ def inject(project_path: str | Path) -> Path:
     return final
 
 
+def latest_build(project_path: str | Path) -> Path:
+    project, _ = _project(project_path)
+    builds = sorted(
+        (candidate / "game" for candidate in (project / "builds").iterdir()),
+        reverse=True,
+    )
+    for build in builds:
+        if build.is_dir():
+            return build
+    raise FileNotFoundError("No generated builds are available")
+
+
+def launchable_executable(project_path: str | Path) -> Path:
+    build = latest_build(project_path)
+    candidates = [
+        executable
+        for executable in build.glob("*.exe")
+        if not executable.name.casefold().startswith("unitycrashhandler")
+        and (build / f"{executable.stem}_Data").is_dir()
+    ]
+    if len(candidates) != 1:
+        raise ValueError(f"Expected one Unity game executable, found {len(candidates)}")
+    return candidates[0]
+
+
 def restore(project_path: str | Path, backup_name: str, destination: str | Path) -> int:
     project, _ = _project(project_path)
     backups_root = (project / "backups").resolve()
@@ -438,3 +463,11 @@ def restore(project_path: str | Path, backup_name: str, destination: str | Path)
         restored += 1
     _log(project, "RESTORE", f"Restored {restored} files from {backup_name} into {destination_path}")
     return restored
+
+
+def restore_latest_build(project_path: str | Path) -> tuple[int, Path]:
+    project, _ = _project(project_path)
+    build = latest_build(project)
+    backup_name = build.parent.name
+    restored = restore(project, backup_name, build)
+    return restored, build

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -15,12 +16,31 @@ from .pipeline import (
     extract,
     import_csv,
     inject,
+    latest_build,
     list_entries,
+    launchable_executable,
+    restore_latest_build,
     update_translation,
     validate,
 )
 
 SETTINGS_PATH = Path(os.getenv("LOCALAPPDATA", Path.home() / ".config")) / "unity-translator" / "settings.json"
+APP_ICON = Path(__file__).parent / "assets" / "app-icon.ico"
+DESIGN_COLORS = {
+    "background": "#0F1115",
+    "panel": "#171A21",
+    "panel_alt": "#1E222B",
+    "border": "#2B313C",
+    "border_subtle": "#232830",
+    "text": "#F3F4F6",
+    "text_secondary": "#9CA3AF",
+    "muted": "#6B7280",
+    "accent": "#38BDF8",
+    "accent_dim": "#0EA5E9",
+    "success": "#22C55E",
+    "warning": "#F59E0B",
+    "error": "#EF4444",
+}
 
 TUTORIAL_STEPS = (
     {
@@ -40,8 +60,8 @@ TUTORIAL_STEPS = (
     },
     {
         "title": "4. Inyectá sobre una copia",
-        "body": "Inyectar crea backup y un build separado. Probá esa copia; el juego original nunca se sobrescribe.",
-        "where": "En la ventana principal: 8 Generar copia",
+        "body": "Generar crea un backup y una copia separada. Abrí la carpeta, ejecutá el juego para probarlo o restaurá ese build sin tocar el original.",
+        "where": "En la ventana principal: 8 Generar copia → Resultado",
     },
 )
 
@@ -52,6 +72,27 @@ STATUS_FILTERS = {
     "Vacías intencionales": "intentionally_empty",
 }
 STATUS_LABELS = {value: label for label, value in STATUS_FILTERS.items() if value != "all"}
+
+
+def open_folder(path: str | Path, launcher: Callable[[str], object] | None = None) -> Path:
+    target = Path(path).resolve()
+    if not target.is_dir():
+        raise FileNotFoundError(f"No se encontró la carpeta: {target}")
+    system_launcher = launcher or os.startfile
+    system_launcher(str(target))
+    return target
+
+
+def start_executable(
+    path: str | Path,
+    launcher: Callable[..., object] | None = None,
+) -> Path:
+    executable = Path(path).resolve()
+    if not executable.is_file():
+        raise FileNotFoundError(f"No se encontró el ejecutable: {executable}")
+    process_launcher = launcher or subprocess.Popen
+    process_launcher([str(executable)], cwd=str(executable.parent))
+    return executable
 
 
 def load_tutorial_preference(path: Path = SETTINGS_PATH) -> bool:
@@ -245,9 +286,22 @@ class EditorWindow:
         editor = ttk.LabelFrame(frame, text="Traducción seleccionada", padding=10)
         editor.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         editor.columnconfigure(0, weight=1)
-        self.original = tk.Text(editor, height=3, wrap="word", state="disabled")
+        text_options = {
+            "height": 3,
+            "wrap": "word",
+            "background": DESIGN_COLORS["background"],
+            "foreground": DESIGN_COLORS["text_secondary"],
+            "insertbackground": DESIGN_COLORS["accent"],
+            "selectbackground": "#164E63",
+            "selectforeground": DESIGN_COLORS["text"],
+            "relief": "flat",
+            "highlightthickness": 1,
+            "highlightbackground": DESIGN_COLORS["border"],
+            "highlightcolor": DESIGN_COLORS["accent"],
+        }
+        self.original = tk.Text(editor, state="disabled", **text_options)
         self.original.grid(row=0, column=0, columnspan=3, sticky="ew")
-        self.translation = tk.Text(editor, height=3, wrap="word")
+        self.translation = tk.Text(editor, **text_options)
         self.translation.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 0))
         ttk.Checkbutton(
             editor,
@@ -320,29 +374,143 @@ class DesktopApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Unity Translator")
-        self.root.minsize(860, 620)
-        self.root.geometry("940x680")
-        style = ttk.Style(root)
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
-        style.configure("TButton", padding=(10, 7))
-        style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"))
-        style.configure("Secondary.TLabel", foreground="SystemGrayText")
+        if APP_ICON.is_file():
+            try:
+                self.root.iconbitmap(default=str(APP_ICON))
+            except tk.TclError:
+                pass
+        self.root.minsize(900, 680)
+        self.root.geometry("980x760")
+        self._configure_styles()
         self.game = tk.StringVar()
         self.project = tk.StringVar()
         self.profile = tk.StringVar()
         self.csv_path = tk.StringVar()
+        self.build_path = tk.StringVar(value="Todavía no se generó una copia")
         self.stage_status = tk.StringVar(value="Listo")
         self._buttons: list[ttk.Button] = []
         self._build()
         self.root.bind("<F1>", lambda _event: self._show_tutorial())
         self.root.after(250, self._show_startup_tutorial)
 
+    def _configure_styles(self) -> None:
+        colors = DESIGN_COLORS
+        style = ttk.Style(self.root)
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+        style.configure(".", background=colors["background"], foreground=colors["text"], font=("Segoe UI", 10))
+        style.configure("TFrame", background=colors["background"])
+        style.configure("Panel.TFrame", background=colors["panel"])
+        style.configure(
+            "TLabelframe",
+            background=colors["panel"],
+            bordercolor=colors["border"],
+            relief="solid",
+            borderwidth=1,
+        )
+        style.configure(
+            "TLabelframe.Label",
+            background=colors["panel"],
+            foreground=colors["muted"],
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.configure("TLabel", background=colors["background"], foreground=colors["text"])
+        style.configure("Panel.TLabel", background=colors["panel"], foreground=colors["text"])
+        style.configure("Secondary.TLabel", background=colors["background"], foreground=colors["muted"])
+        style.configure("PanelSecondary.TLabel", background=colors["panel"], foreground=colors["muted"])
+        style.configure(
+            "TButton",
+            padding=(12, 8),
+            background=colors["panel_alt"],
+            foreground=colors["text_secondary"],
+            bordercolor=colors["border"],
+            lightcolor=colors["border"],
+            darkcolor=colors["border"],
+            relief="solid",
+            borderwidth=1,
+        )
+        style.map(
+            "TButton",
+            background=[("active", colors["border"]), ("pressed", colors["border_subtle"]), ("disabled", colors["panel"])],
+            foreground=[("active", colors["text"]), ("disabled", colors["muted"])],
+        )
+        style.configure(
+            "Accent.TButton",
+            padding=(12, 8),
+            background=colors["accent"],
+            foreground="#061019",
+            bordercolor=colors["accent"],
+            font=("Segoe UI", 10, "bold"),
+        )
+        style.map("Accent.TButton", background=[("active", colors["accent_dim"]), ("pressed", colors["accent_dim"]), ("disabled", colors["panel_alt"])])
+        style.configure(
+            "TEntry",
+            fieldbackground="#0D1014",
+            foreground=colors["text_secondary"],
+            insertcolor=colors["accent"],
+            bordercolor=colors["border"],
+            lightcolor=colors["border"],
+            darkcolor=colors["border"],
+            padding=(8, 6),
+        )
+        style.configure("TCheckbutton", background=colors["panel"], foreground=colors["text_secondary"])
+        style.map("TCheckbutton", foreground=[("active", colors["text"])])
+        style.configure(
+            "TCombobox",
+            fieldbackground="#0D1014",
+            background=colors["panel_alt"],
+            foreground=colors["text_secondary"],
+            arrowcolor=colors["accent"],
+            bordercolor=colors["border"],
+        )
+        style.map("TCombobox", fieldbackground=[("readonly", "#0D1014")], foreground=[("readonly", colors["text_secondary"])])
+        style.configure(
+            "Treeview",
+            background="#0D1014",
+            fieldbackground="#0D1014",
+            foreground=colors["text_secondary"],
+            bordercolor=colors["border"],
+            rowheight=28,
+        )
+        style.map("Treeview", background=[("selected", "#164E63")], foreground=[("selected", colors["text"])])
+        style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["muted"], relief="flat", padding=(8, 7))
+        style.configure("TScrollbar", background=colors["panel_alt"], troughcolor=colors["background"], arrowcolor=colors["muted"])
+        style.configure("TProgressbar", troughcolor=colors["border"], background=colors["accent"], bordercolor=colors["border"], lightcolor=colors["accent"], darkcolor=colors["accent"])
+        self.root.configure(background=colors["background"])
+
     def _build(self) -> None:
-        frame = ttk.Frame(self.root, padding=24)
-        frame.pack(fill="both", expand=True)
+        viewport = ttk.Frame(self.root)
+        viewport.pack(fill="both", expand=True)
+        viewport.columnconfigure(0, weight=1)
+        viewport.rowconfigure(0, weight=1)
+
+        canvas = tk.Canvas(
+            viewport,
+            background=DESIGN_COLORS["background"],
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        scrollbar = ttk.Scrollbar(viewport, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self._scroll_canvas = canvas
+
+        frame = ttk.Frame(canvas, padding=24)
+        canvas_window = canvas.create_window((0, 0), window=frame, anchor="nw")
+
+        def update_scroll_region(_event: tk.Event | None = None) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def resize_content(event: tk.Event) -> None:
+            canvas.itemconfigure(canvas_window, width=event.width)
+
+        frame.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", resize_content)
+        self.root.bind_all("<MouseWheel>", self._scroll_with_wheel, add="+")
+
         frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(5, weight=1)
+        frame.rowconfigure(7, weight=1)
 
         header = ttk.Frame(frame)
         header.grid(row=0, column=0, sticky="ew", pady=(0, 18))
@@ -372,45 +540,127 @@ class DesktopApp:
         self._path_row(paths, 2, "Perfil", self.profile, self._select_profile)
         self._path_row(paths, 3, "CSV", self.csv_path, self._select_csv)
 
-        actions = ttk.LabelFrame(frame, text="Flujo de trabajo", padding=12)
-        actions.grid(row=2, column=0, sticky="ew", pady=(14, 12))
-        for column in range(4):
-            actions.columnconfigure(column, weight=1)
-        specs = [
-            ("1  Analizar", self._analyze),
-            ("2  Crear proyecto", self._create_project),
-            ("3  Extraer", self._extract),
-            ("4  Abrir editor", self._open_editor),
-            ("5  Exportar CSV", self._export),
-            ("6  Importar CSV", self._import),
-            ("7  Validar", self._validate),
-            ("8  Generar copia", self._inject),
-        ]
-        for index, (label, callback) in enumerate(specs):
-            button = ttk.Button(
-                actions,
-                text=label,
-                command=callback,
-                style="Accent.TButton" if index == 7 else "TButton",
-            )
-            button.grid(row=index // 4, column=index % 4, padx=4, pady=4, sticky="ew")
+        actions = ttk.LabelFrame(frame, text="Flujo de trabajo", padding=14)
+        actions.grid(row=2, column=0, sticky="ew", pady=(14, 0))
+        actions.columnconfigure(0, weight=1)
+
+        # Phase 1: Setup and Analysis
+        phase1 = ttk.Frame(actions, style="Panel.TFrame")
+        phase1.grid(row=0, column=0, sticky="ew", pady=(0, 14))
+        phase1.columnconfigure(0, weight=1)
+        phase1.columnconfigure(1, weight=1)
+        ttk.Label(phase1, text="1. Preparación", style="Panel.TLabel", font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 10)
+        )
+        button_analyze = ttk.Button(phase1, text="Analizar", command=self._analyze)
+        button_analyze.grid(row=1, column=0, padx=(0, 4), sticky="ew")
+        self._buttons.append(button_analyze)
+        button_create = ttk.Button(phase1, text="Crear proyecto", command=self._create_project)
+        button_create.grid(row=1, column=1, padx=(4, 0), sticky="ew")
+        self._buttons.append(button_create)
+
+        # Phase 2: Extraction and Export
+        phase2 = ttk.Frame(actions, style="Panel.TFrame")
+        phase2.grid(row=1, column=0, sticky="ew", pady=(0, 14))
+        phase2.columnconfigure(0, weight=1)
+        phase2.columnconfigure(1, weight=1)
+        ttk.Label(phase2, text="2. Extracción", style="Panel.TLabel", font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 10)
+        )
+        button_extract = ttk.Button(phase2, text="Extraer textos", command=self._extract)
+        button_extract.grid(row=1, column=0, padx=(0, 4), sticky="ew")
+        self._buttons.append(button_extract)
+        button_export = ttk.Button(phase2, text="Exportar CSV", command=self._export)
+        button_export.grid(row=1, column=1, padx=(4, 0), sticky="ew")
+        self._buttons.append(button_export)
+
+        # Phase 3: Translation and Validation
+        phase3 = ttk.Frame(actions, style="Panel.TFrame")
+        phase3.grid(row=2, column=0, sticky="ew", pady=(0, 14))
+        phase3.columnconfigure(0, weight=1)
+        phase3.columnconfigure(1, weight=1)
+        ttk.Label(phase3, text="3. Traducción", style="Panel.TLabel", font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 10)
+        )
+        button_editor = ttk.Button(phase3, text="Abrir editor manual", command=self._open_editor)
+        button_editor.grid(row=1, column=0, padx=(0, 4), sticky="ew")
+        self._buttons.append(button_editor)
+        button_import = ttk.Button(phase3, text="Importar CSV", command=self._import)
+        button_import.grid(row=1, column=1, padx=(4, 0), sticky="ew")
+        self._buttons.append(button_import)
+        button_validate = ttk.Button(phase3, text="Validar traducciones", command=self._validate)
+        button_validate.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        self._buttons.append(button_validate)
+
+        # Phase 4: Generation
+        phase4 = ttk.Frame(actions, style="Panel.TFrame")
+        phase4.grid(row=3, column=0, sticky="ew")
+        phase4.columnconfigure(0, weight=1)
+        ttk.Label(phase4, text="4. Generación y prueba", style="Panel.TLabel", font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, sticky="w", pady=(0, 10)
+        )
+        button_inject = ttk.Button(phase4, text="Generar copia traducida", command=self._inject, style="Accent.TButton")
+        button_inject.grid(row=1, column=0, sticky="ew")
+        self._buttons.append(button_inject)
+
+        result = ttk.LabelFrame(frame, text="Resultado: Copia traducida", padding=14)
+        result.grid(row=4, column=0, sticky="ew", pady=(12, 12))
+        result.columnconfigure(0, weight=1)
+        ttk.Label(result, text="Ruta:", style="Panel.TLabel", font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=0, sticky="w", padx=(0, 8)
+        )
+        ttk.Label(result, textvariable=self.build_path, style="PanelSecondary.TLabel").grid(
+            row=0, column=1, sticky="ew", padx=(0, 12)
+        )
+        ttk.Separator(result, orient="horizontal").grid(row=1, column=0, columnspan=4, sticky="ew", pady=8)
+        ttk.Label(result, text="Acciones:", style="Panel.TLabel", font=("Segoe UI", 9, "bold")).grid(
+            row=2, column=0, columnspan=4, sticky="w", pady=(0, 8)
+        )
+        result_buttons = (
+            ("📁 Abrir carpeta", self._open_build_folder),
+            ("▶ Ejecutar copia", self._launch_build),
+            ("🔄 Restaurar", self._restore_build),
+        )
+        for column, (label, callback) in enumerate(result_buttons):
+            button = ttk.Button(result, text=label, command=callback)
+            button.grid(row=3, column=column, padx=(0 if column == 0 else 4), sticky="ew")
+            result.columnconfigure(column, weight=1)
             self._buttons.append(button)
 
         status_header = ttk.Frame(frame)
-        status_header.grid(row=3, column=0, sticky="ew")
+        status_header.grid(row=5, column=0, sticky="ew", pady=(12, 0))
         status_header.columnconfigure(0, weight=1)
-        ttk.Label(status_header, text="Estado y actividad", font=("Segoe UI", 10, "bold")).grid(
+        ttk.Label(status_header, text="Registro de actividad", font=("Segoe UI", 10, "bold")).grid(
             row=0, column=0, sticky="w"
         )
-        ttk.Label(status_header, textvariable=self.stage_status, style="Secondary.TLabel").grid(
+        ttk.Label(status_header, textvariable=self.stage_status, style="Secondary.TLabel", font=("Segoe UI", 9)).grid(
             row=0, column=1, sticky="e"
         )
         self.progress = ttk.Progressbar(frame, mode="indeterminate")
-        self.progress.grid(row=4, column=0, sticky="ew", pady=(6, 8))
+        self.progress.grid(row=6, column=0, sticky="ew", pady=(8, 6))
         self.progress.grid_remove()
-        self.output = tk.Text(frame, height=12, wrap="word", state="disabled", font=("Consolas", 9))
-        self.output.grid(row=5, column=0, sticky="nsew")
+        self.output = tk.Text(
+            frame,
+            height=12,
+            wrap="word",
+            state="disabled",
+            font=("Consolas", 9),
+            background="#080A0D",
+            foreground=DESIGN_COLORS["text_secondary"],
+            insertbackground=DESIGN_COLORS["accent"],
+            selectbackground="#164E63",
+            selectforeground=DESIGN_COLORS["text"],
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground=DESIGN_COLORS["border"],
+            highlightcolor=DESIGN_COLORS["accent"],
+        )
+        self.output.grid(row=7, column=0, sticky="nsew")
         self._append("Listo. Seleccioná un juego, una carpeta de proyecto y un perfil compatible.")
+
+    def _scroll_with_wheel(self, event: tk.Event) -> None:
+        if getattr(self, "_scroll_canvas", None) is not None:
+            self._scroll_canvas.yview_scroll(-int(event.delta / 120), "units")
 
     def _path_row(
         self,
@@ -420,7 +670,7 @@ class DesktopApp:
         variable: tk.StringVar,
         browse: Callable[[], None],
     ) -> None:
-        ttk.Label(parent, text=f"{label}:").grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
+        ttk.Label(parent, text=f"{label}:", style="Panel.TLabel").grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
         ttk.Entry(parent, textvariable=variable).grid(row=row, column=1, sticky="ew", pady=4)
         ttk.Button(parent, text="Elegir…", command=browse).grid(row=row, column=2, padx=(8, 0), pady=4)
 
@@ -431,6 +681,10 @@ class DesktopApp:
     def _select_project(self) -> None:
         if selected := filedialog.askdirectory(title="Seleccionar carpeta del proyecto"):
             self.project.set(selected)
+            try:
+                self.build_path.set(str(latest_build(selected)))
+            except (OSError, ValueError):
+                self.build_path.set("Todavía no se generó una copia")
 
     def _select_profile(self) -> None:
         if selected := filedialog.askopenfilename(title="Seleccionar perfil de extracción", filetypes=[("JSON", "*.json")]):
@@ -521,7 +775,47 @@ class DesktopApp:
         self._run("Validación", lambda: format_validation(validate(self.project.get())))
 
     def _inject(self) -> None:
-        self._run("Copia", lambda: f"Copia generada en {inject(self.project.get())}")
+        def operation() -> str:
+            build = inject(self.project.get())
+            self.root.after(0, lambda build=build: self.build_path.set(str(build)))
+            return f"Copia generada y verificada en {build}"
+
+        self._run("Copia", operation)
+
+    def _open_build_folder(self) -> None:
+        try:
+            build = open_folder(latest_build(self.project.get()))
+            self.build_path.set(str(build))
+            self._append(f"[Resultado] Carpeta abierta: {build}")
+        except Exception as error:
+            messagebox.showerror("No se pudo abrir la copia", str(error))
+
+    def _launch_build(self) -> None:
+        try:
+            executable = start_executable(launchable_executable(self.project.get()))
+            self.build_path.set(str(executable.parent))
+            self._append(f"[Resultado] Juego iniciado: {executable.name}")
+        except Exception as error:
+            messagebox.showerror("No se pudo ejecutar la copia", str(error))
+
+    def _restore_build(self) -> None:
+        try:
+            build = latest_build(self.project.get())
+        except Exception as error:
+            messagebox.showerror("No se pudo restaurar", str(error))
+            return
+        if not messagebox.askyesno(
+            "Restaurar último build",
+            "Se restaurarán dentro de la copia los archivos respaldados antes de la inyección. "
+            "El juego original no se modificará. ¿Continuar?",
+        ):
+            return
+
+        def operation() -> str:
+            restored, destination = restore_latest_build(self.project.get())
+            return f"Se restauraron {restored} archivos en {destination}"
+
+        self._run("Restauración", operation)
 
     def _open_editor(self) -> None:
         try:

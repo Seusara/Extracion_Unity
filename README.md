@@ -22,6 +22,29 @@ unity-translator-gui
 
 La ventana recorre el mismo pipeline del CLI y abre un editor manual con búsqueda, filtros por estado, edición de traducciones y marcado intencionalmente vacío. Al primer inicio muestra un tutorial textual opcional de cuatro pasos, que también queda accesible desde **Ver tutorial** o con `F1`. La UI llama al core; no contiene lógica de extracción o reinyección.
 
+La interfaz usa una adaptación sobria del diseño visual de `Unity Translator Interface Design`: paneles oscuros, acento celeste, estados semánticos, agrupación por fases y registro técnico legible. Se conservaron únicamente patrones útiles para el flujo real; no se incluyen datos ficticios, imágenes de juego ni controles decorativos. La ventana tiene desplazamiento vertical mediante scrollbar y rueda del mouse para acceder al resultado y al registro en pantallas pequeñas.
+
+## Ejecutable portable de Windows
+
+El release portable se entrega como `UnityTranslator-0.1.0-windows-x64.zip`. Dentro encontrarás `UnityTranslator.exe`, dos perfiles JSON de ejemplo y `LEEME.txt`. No requiere Python instalado ni conexión a Internet durante el uso.
+
+```text
+UnityTranslator-0.1.0-windows-x64/
+├── UnityTranslator.exe
+├── profiles/
+│   ├── streamingassets-dialogue.json
+│   └── unity-textasset-json.json
+└── LEEME.txt
+```
+
+Para regenerarlo desde Windows:
+
+```bash
+python -m PyInstaller --noconfirm --clean UnityTranslator.spec
+```
+
+El `.spec` incluye Tkinter/Tcl/Tk, UnityPy, dependencias detectadas, assets de la aplicación, icono y metadatos Windows. El ejecutable es Windows x64 y no está firmado digitalmente; SmartScreen puede mostrar una advertencia en el primer inicio.
+
 ## Flujo CLI
 
 ```bash
