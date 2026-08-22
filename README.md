@@ -26,7 +26,7 @@ La interfaz usa una adaptación sobria del diseño visual de `Unity Translator I
 
 ## Ejecutable portable de Windows
 
-El release portable se entrega como `UnityTranslator-0.1.0-windows-x64.zip`. Dentro encontrarás `UnityTranslator.exe`, dos perfiles JSON de ejemplo y `LEEME.txt`. No requiere Python instalado ni conexión a Internet durante el uso.
+El release portable se entrega como `UnityTranslator-0.1.0-windows-x64.zip`. Dentro encontrarás `UnityTranslator.exe`, tres perfiles JSON de ejemplo y `LEEME.txt`. No requiere Python instalado ni conexión a Internet durante el uso.
 
 ```text
 UnityTranslator-0.1.0-windows-x64/
