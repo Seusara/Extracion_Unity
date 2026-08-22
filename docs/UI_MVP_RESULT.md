@@ -30,10 +30,10 @@ Editor interno:
 Tutorial inicial:
 
 - cuatro pasos breves que recorren selección, extracción, edición/validación e inyección segura;
-- dos capturas locales de ERICA: vista de gameplay y detalle de texto localizado;
-- las capturas son ejemplos de orientación, no acoplan el pipeline a ERICA;
+- tutorial final exclusivamente textual, sin fotografías ni capturas del juego;
+- indicación contextual del control correspondiente en cada paso;
 - navegación anterior/siguiente y opción para omitir;
-- preferencia persistente `No volver a mostrar al iniciar`;
+- preferencia persistente `Mostrar tutorial al iniciar`;
 - acceso permanente desde `Ver tutorial`;
 - no bloquea el uso posterior de la aplicación.
 
@@ -46,6 +46,20 @@ Tutorial inicial:
 - Editor abierto programáticamente sobre el proyecto ERICA real: 942 filas mostradas.
 - La aplicación visible se lanzó con las rutas de ERICA precargadas para prueba manual.
 - Tutorial verificado: `Paso 1 de 4`, título y navegación renderizados correctamente.
+
+## Revisión visual final
+
+Se aplicaron principios de Apple HIG adaptados a una aplicación nativa de Windows:
+
+- jerarquía tipográfica clara y lenguaje breve orientado a acciones;
+- controles nativos con tema del sistema y color secundario semántico;
+- una única acción final enfatizada: `8 Generar copia`;
+- agrupación por proyecto, flujo y estado;
+- progreso indeterminado durante tareas del pipeline y determinado en el tutorial;
+- feedback textual además del indicador visual;
+- tutorial breve, opcional, recuperable con `Ver tutorial` o `F1`;
+- navegación por teclado mediante los controles nativos;
+- recordatorio visible de que el original permanece protegido.
 
 ## Límite
 
