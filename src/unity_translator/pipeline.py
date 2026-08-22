@@ -208,6 +208,32 @@ def extract(project_path: str | Path) -> list[dict]:
     return entries
 
 
+def update_translation(
+    project_path: str | Path,
+    entry_id: str,
+    text: str,
+    *,
+    intentionally_empty: bool = False,
+) -> dict:
+    project, _manifest = _project(project_path)
+    ir_path = project / "translation.json"
+    ir = read_json(ir_path)
+    matches = [entry for entry in ir["entries"] if entry["id"] == entry_id]
+    if len(matches) != 1:
+        raise ValueError(f"Expected one Translation IR entry for ID {entry_id!r}, found {len(matches)}")
+    entry = matches[0]
+    ManualProvider().apply(entry, text, intentionally_empty=intentionally_empty)
+    write_json_atomic(ir_path, ir)
+    _log(project, "EDITOR", f"Updated {entry_id}")
+    return deepcopy(entry)
+
+
+def list_entries(project_path: str | Path) -> list[dict]:
+    project, _manifest = _project(project_path)
+    ir = read_json(project / "translation.json")
+    return deepcopy(ir["entries"])
+
+
 def export_csv(project_path: str | Path, csv_path: str | Path) -> Path:
     project, _ = _project(project_path)
     ir = read_json(project / "translation.json")
