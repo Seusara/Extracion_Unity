@@ -21,30 +21,37 @@ from .pipeline import (
 )
 
 SETTINGS_PATH = Path(os.getenv("LOCALAPPDATA", Path.home() / ".config")) / "unity-translator" / "settings.json"
-ASSET_DIR = Path(__file__).parent / "assets" / "tutorial"
 
 TUTORIAL_STEPS = (
     {
         "title": "1. Seleccioná el juego",
         "body": "Elegí la carpeta que contiene el ejecutable y su carpeta *_Data. Analizar solo inspecciona: no modifica archivos.",
-        "image": "erica-gameplay.png",
-        "caption": "Ejemplo real: ERICA Knight of the Sun en ejecución.",
+        "where": "En la ventana principal: Juego → Elegir… → 1 Analizar",
     },
     {
         "title": "2. Creá el proyecto y extraé",
         "body": "Elegí un perfil compatible, creá una carpeta de proyecto y extraé los textos al Translation IR.",
+        "where": "En la ventana principal: 2 Crear proyecto → 3 Extraer",
     },
     {
         "title": "3. Traducí y validá",
         "body": "Usá el Editor o exportá el CSV. Después importá y validá IDs, placeholders, tags y hashes.",
-        "image": "erica-text-example.png",
-        "caption": "Ejemplo real de texto localizado dentro del juego.",
+        "where": "En la ventana principal: 4 Abrir editor → 7 Validar",
     },
     {
         "title": "4. Inyectá sobre una copia",
         "body": "Inyectar crea backup y un build separado. Probá esa copia; el juego original nunca se sobrescribe.",
+        "where": "En la ventana principal: 8 Generar copia",
     },
 )
+
+STATUS_FILTERS = {
+    "Todas": "all",
+    "Sin traducir": "untranslated",
+    "Traducidas": "translated",
+    "Vacías intencionales": "intentionally_empty",
+}
+STATUS_LABELS = {value: label for label, value in STATUS_FILTERS.items() if value != "all"}
 
 
 def load_tutorial_preference(path: Path = SETTINGS_PATH) -> bool:
@@ -67,22 +74,22 @@ def save_tutorial_preference(path: Path = SETTINGS_PATH, show_on_startup: bool =
 
 def format_analysis(result: dict) -> str:
     if not result.get("is_unity"):
-        return f"Unity game not detected: {result.get('reason', 'unknown reason')}"
+        return f"No se detectó un juego Unity: {result.get('reason', 'motivo desconocido')}"
     return "\n".join(
         [
-            f"Unity {result.get('unity_version', 'unknown')} detected",
-            f"Runtime: {result.get('runtime', 'unknown')}",
-            f"StreamingAssets: {'yes' if result.get('streaming_assets') else 'no'}",
-            f"Assets: {len(result.get('asset_files', []))}",
-            f"Compatibility: {result.get('compatibility', 'unknown')}",
+            f"Unity {result.get('unity_version', 'desconocida')} detectado",
+            f"Ejecución: {result.get('runtime', 'desconocida')}",
+            f"StreamingAssets: {'sí' if result.get('streaming_assets') else 'no'}",
+            f"Assets detectados: {len(result.get('asset_files', []))}",
+            f"Compatibilidad: {result.get('compatibility', 'desconocida')}",
         ]
     )
 
 
 def format_validation(result: dict) -> str:
     return (
-        f"Checked: {result['checked']} | Errors: {result['errors']} | "
-        f"Warnings: {result['warnings']} | Pending: {result['pending']}"
+        f"Revisadas: {result['checked']} | Errores: {result['errors']} | "
+        f"Advertencias: {result['warnings']} | Pendientes: {result['pending']}"
     )
 
 
@@ -104,8 +111,7 @@ def filter_entries(entries: list[dict], query: str, status: str = "all") -> list
 class TutorialDialog:
     def __init__(self, parent: tk.Misc) -> None:
         self.page = 0
-        self.preview_image: tk.PhotoImage | None = None
-        self.dont_show_again = tk.BooleanVar(value=not load_tutorial_preference())
+        self.show_on_startup = tk.BooleanVar(value=load_tutorial_preference())
         self.window = tk.Toplevel(parent)
         self.window.title("Primeros pasos")
         self.window.resizable(False, False)
@@ -117,24 +123,25 @@ class TutorialDialog:
         frame.columnconfigure(0, weight=1)
         self.counter = ttk.Label(frame, style="Secondary.TLabel")
         self.counter.grid(row=0, column=0, sticky="w")
+        self.progress = ttk.Progressbar(frame, mode="determinate", maximum=len(TUTORIAL_STEPS))
+        self.progress.grid(row=1, column=0, sticky="ew", pady=(8, 18))
         self.title = ttk.Label(frame, font=("Segoe UI", 17, "bold"))
-        self.title.grid(row=1, column=0, sticky="w", pady=(8, 8))
-        self.preview = ttk.Label(frame)
-        self.preview.grid(row=2, column=0, pady=(0, 6))
-        self.caption = ttk.Label(frame, style="Secondary.TLabel")
-        self.caption.grid(row=3, column=0, sticky="w", pady=(0, 12))
+        self.title.grid(row=2, column=0, sticky="w", pady=(0, 8))
         self.body = ttk.Label(frame, wraplength=500, justify="left")
-        self.body.grid(row=4, column=0, sticky="w", pady=(0, 22))
+        self.body.grid(row=3, column=0, sticky="w", pady=(0, 18))
+        ttk.Separator(frame).grid(row=4, column=0, sticky="ew", pady=(0, 14))
+        self.where = ttk.Label(frame, wraplength=500, style="Secondary.TLabel")
+        self.where.grid(row=5, column=0, sticky="w", pady=(0, 18))
         ttk.Checkbutton(
             frame,
-            text="No volver a mostrar al iniciar",
-            variable=self.dont_show_again,
-        ).grid(row=5, column=0, sticky="w")
+            text="Mostrar tutorial al iniciar",
+            variable=self.show_on_startup,
+        ).grid(row=6, column=0, sticky="w")
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=6, column=0, sticky="ew", pady=(20, 0))
+        buttons.grid(row=7, column=0, sticky="ew", pady=(20, 0))
         buttons.columnconfigure(1, weight=1)
-        ttk.Button(buttons, text="Omitir", command=self.close).grid(row=0, column=0)
+        ttk.Button(buttons, text="Omitir", command=self.skip).grid(row=0, column=0)
         self.previous = ttk.Button(buttons, text="Anterior", command=self._previous)
         self.previous.grid(row=0, column=2, padx=(8, 0))
         self.next = ttk.Button(buttons, text="Siguiente", command=self._next, style="Accent.TButton")
@@ -149,21 +156,12 @@ class TutorialDialog:
     def _render(self) -> None:
         step = TUTORIAL_STEPS[self.page]
         self.counter.configure(text=f"Paso {self.page + 1} de {len(TUTORIAL_STEPS)}")
+        self.progress.configure(value=self.page + 1)
         self.title.configure(text=step["title"])
         self.body.configure(text=step["body"])
-        if image_name := step.get("image"):
-            self.preview_image = tk.PhotoImage(file=ASSET_DIR / image_name)
-            self.preview.configure(image=self.preview_image)
-            self.preview.grid()
-            self.caption.configure(text=step.get("caption", ""))
-            self.caption.grid()
-        else:
-            self.preview_image = None
-            self.preview.configure(image="")
-            self.preview.grid_remove()
-            self.caption.grid_remove()
+        self.where.configure(text=step["where"])
         self.previous.configure(state="normal" if self.page else "disabled")
-        self.next.configure(text="Empezar" if self.page == len(TUTORIAL_STEPS) - 1 else "Siguiente")
+        self.next.configure(text="Listo" if self.page == len(TUTORIAL_STEPS) - 1 else "Siguiente")
 
     def _previous(self) -> None:
         if self.page:
@@ -177,22 +175,26 @@ class TutorialDialog:
         self.page += 1
         self._render()
 
+    def skip(self) -> None:
+        self.show_on_startup.set(False)
+        self.close()
+
     def close(self) -> None:
-        save_tutorial_preference(SETTINGS_PATH, not self.dont_show_again.get())
+        save_tutorial_preference(SETTINGS_PATH, self.show_on_startup.get())
         self.window.destroy()
 
 
 class EditorWindow:
     def __init__(self, parent: tk.Misc, project_path: str) -> None:
         if not project_path:
-            raise ValueError("Select a project before opening the editor")
+            raise ValueError("Seleccioná un proyecto antes de abrir el editor")
         self.project_path = project_path
         self.entries: list[dict] = []
         self.window = tk.Toplevel(parent)
         self.window.title("Editor de traducciones")
         self.window.minsize(960, 620)
         self.query = tk.StringVar()
-        self.status = tk.StringVar(value="all")
+        self.status = tk.StringVar(value="Todas")
         self.intentionally_empty = tk.BooleanVar()
         self._build()
         self.refresh()
@@ -214,7 +216,7 @@ class EditorWindow:
         status = ttk.Combobox(
             filters,
             textvariable=self.status,
-            values=("all", "untranslated", "translated", "intentionally_empty"),
+            values=tuple(STATUS_FILTERS),
             state="readonly",
             width=20,
         )
@@ -264,12 +266,16 @@ class EditorWindow:
         selected = self.tree.selection()
         selected_id = selected[0] if selected else None
         self.tree.delete(*self.tree.get_children())
-        for entry in filter_entries(self.entries, self.query.get(), self.status.get()):
+        for entry in filter_entries(self.entries, self.query.get(), STATUS_FILTERS[self.status.get()]):
             self.tree.insert(
                 "",
                 "end",
                 iid=entry["id"],
-                values=(entry["original_text"], entry["translated_text"], entry["status"]),
+                values=(
+                    entry["original_text"],
+                    entry["translated_text"],
+                    STATUS_LABELS.get(entry["status"], entry["status"]),
+                ),
             )
         if selected_id and self.tree.exists(selected_id):
             self.tree.selection_set(selected_id)
@@ -321,7 +327,7 @@ class DesktopApp:
             style.theme_use("vista")
         style.configure("TButton", padding=(10, 7))
         style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"))
-        style.configure("Secondary.TLabel", foreground="#5f6368")
+        style.configure("Secondary.TLabel", foreground="SystemGrayText")
         self.game = tk.StringVar()
         self.project = tk.StringVar()
         self.profile = tk.StringVar()
@@ -329,6 +335,7 @@ class DesktopApp:
         self.stage_status = tk.StringVar(value="Listo")
         self._buttons: list[ttk.Button] = []
         self._build()
+        self.root.bind("<F1>", lambda _event: self._show_tutorial())
         self.root.after(250, self._show_startup_tutorial)
 
     def _build(self) -> None:
@@ -345,11 +352,16 @@ class DesktopApp:
         )
         ttk.Label(
             header,
-            text="Pipeline offline para extraer, traducir y generar una copia segura del juego.",
+            text="Extraé, traducí y validá textos Unity completamente offline.",
             style="Secondary.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(3, 0))
+        ttk.Label(
+            header,
+            text="Original protegido · Los cambios se aplican solamente a una copia.",
+            font=("Segoe UI", 9, "bold"),
+        ).grid(row=2, column=0, sticky="w", pady=(7, 0))
         ttk.Button(header, text="Ver tutorial", command=self._show_tutorial).grid(
-            row=0, column=1, rowspan=2, sticky="e"
+            row=0, column=1, rowspan=3, sticky="e"
         )
 
         paths = ttk.LabelFrame(frame, text="Proyecto", padding=14)
@@ -379,7 +391,7 @@ class DesktopApp:
                 actions,
                 text=label,
                 command=callback,
-                style="Accent.TButton" if index in {0, 7} else "TButton",
+                style="Accent.TButton" if index == 7 else "TButton",
             )
             button.grid(row=index // 4, column=index % 4, padx=4, pady=4, sticky="ew")
             self._buttons.append(button)
@@ -395,6 +407,7 @@ class DesktopApp:
         )
         self.progress = ttk.Progressbar(frame, mode="indeterminate")
         self.progress.grid(row=4, column=0, sticky="ew", pady=(6, 8))
+        self.progress.grid_remove()
         self.output = tk.Text(frame, height=12, wrap="word", state="disabled", font=("Consolas", 9))
         self.output.grid(row=5, column=0, sticky="nsew")
         self._append("Listo. Seleccioná un juego, una carpeta de proyecto y un perfil compatible.")
@@ -439,9 +452,11 @@ class DesktopApp:
         for button in self._buttons:
             button.configure(state=state)
         if busy:
+            self.progress.grid()
             self.progress.start(12)
         else:
             self.progress.stop()
+            self.progress.grid_remove()
 
     def _append(self, message: str) -> None:
         self.output.configure(state="normal")
@@ -458,7 +473,7 @@ class DesktopApp:
             try:
                 result = operation()
             except Exception as error:
-                self.root.after(0, lambda error=error: self._finish(stage, f"ERROR: {error}", True))
+                self.root.after(0, lambda error=error: self._finish(stage, f"Error: {error}", True))
             else:
                 self.root.after(0, lambda: self._finish(stage, result, False))
 
@@ -472,23 +487,23 @@ class DesktopApp:
             messagebox.showerror(f"Falló {stage}", message)
 
     def _analyze(self) -> None:
-        self._run("ANALYZE", lambda: format_analysis(analyze(self.game.get())))
+        self._run("Análisis", lambda: format_analysis(analyze(self.game.get())))
 
     def _create_project(self) -> None:
         def operation() -> str:
             profile = json.loads(Path(self.profile.get()).read_text(encoding="utf-8"))
             created = create_project(self.game.get(), self.project.get(), profile)
-            return f"Created {created}"
+            return f"Proyecto creado en {created}"
 
-        self._run("PROJECT", operation)
+        self._run("Proyecto", operation)
 
     def _extract(self) -> None:
-        self._run("EXTRACT", lambda: f"Extracted {len(extract(self.project.get()))} strings")
+        self._run("Extracción", lambda: f"Se extrajeron {len(extract(self.project.get()))} cadenas")
 
     def _export(self) -> None:
         def operation() -> str:
             target = export_csv(self.project.get(), self.csv_path.get())
-            return f"Exported {target}"
+            return f"CSV exportado en {target}"
 
         self._run("CSV", operation)
 
@@ -496,23 +511,23 @@ class DesktopApp:
         def operation() -> str:
             result = import_csv(self.project.get(), self.csv_path.get())
             return (
-                f"Imported {result['imported']} | Pending {result['pending']} | "
-                f"Intentionally empty {result['intentionally_empty']}"
+                f"Importadas: {result['imported']} | Pendientes: {result['pending']} | "
+                f"Vacías intencionales: {result['intentionally_empty']}"
             )
 
         self._run("CSV", operation)
 
     def _validate(self) -> None:
-        self._run("VALIDATE", lambda: format_validation(validate(self.project.get())))
+        self._run("Validación", lambda: format_validation(validate(self.project.get())))
 
     def _inject(self) -> None:
-        self._run("INJECT", lambda: f"Build generated at {inject(self.project.get())}")
+        self._run("Copia", lambda: f"Copia generada en {inject(self.project.get())}")
 
     def _open_editor(self) -> None:
         try:
             EditorWindow(self.root, self.project.get())
         except Exception as error:
-            messagebox.showerror("Editor failed", str(error))
+            messagebox.showerror("No se pudo abrir el editor", str(error))
 
 
 def main() -> None:
