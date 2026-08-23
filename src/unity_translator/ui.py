@@ -93,6 +93,15 @@ def open_folder(path: str | Path, launcher: Callable[[str], object] | None = Non
     return target
 
 
+def open_file(path: str | Path, launcher: Callable[[str], object] | None = None) -> Path:
+    target = Path(path).resolve()
+    if not target.is_file():
+        raise FileNotFoundError(f"No se encontró el archivo: {target}")
+    system_launcher = launcher or os.startfile
+    system_launcher(str(target))
+    return target
+
+
 def start_executable(
     path: str | Path,
     launcher: Callable[..., object] | None = None,
@@ -610,6 +619,9 @@ class DesktopApp:
         button_autofix = ttk.Button(phase3, text="Corregir problemas seguros", command=self._auto_fix)
         button_autofix.grid(row=2, column=1, sticky="ew", pady=(10, 0), padx=(4, 0))
         self._buttons.append(button_autofix)
+        button_report = ttk.Button(phase3, text="Abrir informe detallado", command=self._open_validation_report)
+        button_report.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        self._buttons.append(button_report)
 
         # Phase 4: Generation
         phase4 = ttk.Frame(actions, style="Panel.TFrame")
@@ -846,6 +858,17 @@ class DesktopApp:
             "Validación",
             lambda: format_validation(auto_fix_validation(_required_path(self.project.get(), "Proyecto"))),
         )
+
+    def _open_validation_report(self) -> None:
+        try:
+            project = Path(_required_path(self.project.get(), "Proyecto"))
+            report = project / "logs" / "validation-report.csv"
+            if not report.is_file():
+                report = project / "logs" / "validation-report.json"
+            opened = open_file(report)
+            self._append(f"[Validación] Informe abierto: {opened}")
+        except (OSError, ValueError) as error:
+            messagebox.showerror("Informe no disponible", str(error))
 
     def _inject(self) -> None:
         def operation() -> str:

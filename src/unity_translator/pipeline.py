@@ -4,6 +4,7 @@ import csv
 import json
 import shutil
 import tempfile
+from collections import Counter
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -457,7 +458,15 @@ def inject(project_path: str | Path) -> Path:
     project, manifest = _project(project_path)
     report = validate(project)
     if report["errors"]:
-        raise ValueError(f"Injection blocked by {report['errors']} validation error(s)")
+        error_issues = [issue for issue in report["issues"] if issue["severity"] == "error"]
+        codes = ", ".join(f"{code} ({count})" for code, count in Counter(issue["code"] for issue in error_issues).items())
+        ids = ", ".join([issue["entry_id"] for issue in error_issues if issue.get("entry_id")][:5])
+        raise ValueError(
+            f"Inyección bloqueada por {report['errors']} error(es).\n"
+            f"Códigos: {codes}.\n"
+            f"IDs afectados: {ids or 'problemas de archivo/origen'}.\n"
+            f"Informe detallado CSV: {report['report_csv']}"
+        )
     ir = read_json(project / "translation.json")
     stamp = _stamp()
     backup = project / "backups" / stamp
