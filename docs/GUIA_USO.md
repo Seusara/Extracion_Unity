@@ -289,6 +289,15 @@ La validación busca problemas como:
 
 No continúes a la generación si aparecen errores. Las advertencias requieren revisión, aunque no siempre bloquean la generación.
 
+Cada validación genera informes detallados dentro de la carpeta del proyecto:
+
+```text
+logs/validation-report.json
+logs/validation-report.csv
+```
+
+Los informes incluyen la severidad, el código del problema, el ID, el archivo origen, el texto original, la traducción y el estado. El botón **Corregir problemas seguros** solamente restablece traducciones que son idénticas al original y las devuelve a pendientes; no modifica automáticamente placeholders, etiquetas o escapes porque esos casos requieren revisión humana.
+
 ### Paso 9: generar la copia traducida
 
 Cuando la validación sea aceptable, pulsa **Generar copia traducida**.

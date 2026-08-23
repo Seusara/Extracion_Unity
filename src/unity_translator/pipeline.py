@@ -348,14 +348,53 @@ def validate(project_path: str | Path) -> dict:
         live = Path(manifest["game_path"]) / Path(relative)
         if not live.is_file() or sha256_file(live) != expected_hash:
             issues.append({"severity": "error", "code": "source_file_changed", "source_file": relative})
+    entries_by_id = {entry["id"]: entry for entry in ir["entries"]}
+    detailed_issues = []
+    for issue in issues:
+        detail = dict(issue)
+        entry = entries_by_id.get(issue.get("entry_id"))
+        if entry:
+            detail.update({
+                "source_file": entry.get("source_file"),
+                "original_text": entry.get("original_text"),
+                "translated_text": entry.get("translated_text"),
+                "status": entry.get("status"),
+            })
+        detailed_issues.append(detail)
     report = {
         "checked": len(ir["entries"]),
-        "errors": sum(issue["severity"] == "error" for issue in issues),
-        "warnings": sum(issue["severity"] == "warning" for issue in issues),
+        "errors": sum(issue["severity"] == "error" for issue in detailed_issues),
+        "warnings": sum(issue["severity"] == "warning" for issue in detailed_issues),
         "pending": sum(entry["status"] == "untranslated" for entry in ir["entries"]),
-        "issues": issues,
+        "issues": detailed_issues,
     }
+    report["report_json"] = str(project / "logs" / "validation-report.json")
+    report["report_csv"] = str(project / "logs" / "validation-report.csv")
+    write_json_atomic(Path(report["report_json"]), report)
+    with Path(report["report_csv"]).open("w", encoding="utf-8-sig", newline="") as handle:
+        fields = ["severity", "code", "entry_id", "source_file", "status", "message", "sequence", "original_text", "translated_text"]
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(detailed_issues)
     _log(project, "VALIDATE", f"{report['errors']} errors, {report['warnings']} warnings, {report['pending']} pending")
+    _log(project, "VALIDATE", f"Detailed reports: {report['report_json']} and {report['report_csv']}")
+    return report
+
+
+def auto_fix_validation(project_path: str | Path) -> dict:
+    """Apply only non-destructive validation fixes and re-run validation."""
+    project, _manifest = _project(project_path)
+    ir = read_json(project / "translation.json")
+    fixed = 0
+    for entry in ir["entries"]:
+        if entry["status"] == "translated" and entry["translated_text"] == entry["original_text"]:
+            entry["translated_text"] = ""
+            entry["status"] = "untranslated"
+            fixed += 1
+    write_json_atomic(project / "translation.json", ir)
+    _log(project, "VALIDATE", f"Automatically reset {fixed} unchanged translations to pending")
+    report = validate(project)
+    report["auto_fixed"] = fixed
     return report
 
 

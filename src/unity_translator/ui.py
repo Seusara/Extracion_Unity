@@ -12,6 +12,7 @@ from typing import Callable
 from .analyzer import detect_profile
 from .pipeline import (
     analyze,
+    auto_fix_validation,
     create_project,
     export_csv,
     extract,
@@ -139,10 +140,13 @@ def format_analysis(result: dict) -> str:
 
 
 def format_validation(result: dict) -> str:
-    return (
+    summary = (
         f"Revisadas: {result['checked']} | Errores: {result['errors']} | "
         f"Advertencias: {result['warnings']} | Pendientes: {result['pending']}"
     )
+    reports = [result.get("report_json"), result.get("report_csv")]
+    reports = [path for path in reports if path]
+    return summary if not reports else summary + "\nInformes: " + " | ".join(reports)
 
 
 def filter_entries(entries: list[dict], query: str, status: str = "all") -> list[dict]:
@@ -601,8 +605,11 @@ class DesktopApp:
         button_import.grid(row=1, column=1, padx=(4, 0), sticky="ew")
         self._buttons.append(button_import)
         button_validate = ttk.Button(phase3, text="Validar traducciones", command=self._validate)
-        button_validate.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        button_validate.grid(row=2, column=0, sticky="ew", pady=(10, 0), padx=(0, 4))
         self._buttons.append(button_validate)
+        button_autofix = ttk.Button(phase3, text="Corregir problemas seguros", command=self._auto_fix)
+        button_autofix.grid(row=2, column=1, sticky="ew", pady=(10, 0), padx=(4, 0))
+        self._buttons.append(button_autofix)
 
         # Phase 4: Generation
         phase4 = ttk.Frame(actions, style="Panel.TFrame")
@@ -833,6 +840,12 @@ class DesktopApp:
 
     def _validate(self) -> None:
         self._run("Validación", lambda: format_validation(validate(_required_path(self.project.get(), "Proyecto"))))
+
+    def _auto_fix(self) -> None:
+        self._run(
+            "Validación",
+            lambda: format_validation(auto_fix_validation(_required_path(self.project.get(), "Proyecto"))),
+        )
 
     def _inject(self) -> None:
         def operation() -> str:
