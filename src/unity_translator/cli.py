@@ -9,6 +9,25 @@ from pathlib import Path
 from .pipeline import analyze, create_project, export_csv, extract, import_csv, inject, restore, validate
 
 
+def _print_analysis(result: dict) -> None:
+    print("Unity game detected" if result["is_unity"] else "Unity game not detected")
+    print(f"Unity: {result.get('unity_version', 'unknown')}")
+    print(f"Runtime: {result.get('runtime', 'unknown')}")
+    print(f"Compatibility: {result.get('compatibility_level', 'investigation').upper()}")
+    if result.get("reason") and not result["is_unity"]:
+        print(f"Reason: {result['reason']}")
+    print("\nCandidates:")
+    for index, candidate in enumerate(result.get("candidates", []), start=1):
+        print(f"\n{index}. {candidate['adapter_id']} (v{candidate['adapter_version']})")
+        print(f"   Confidence: {candidate['confidence']:.2f}")
+        print("   Evidence:")
+        for item in candidate["evidence"]:
+            print(f"   - {item}")
+        print("   Limitations:")
+        for item in candidate["limitations"]:
+            print(f"   - {item}")
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="unity-translator")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -55,10 +74,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.json:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
-                print("Unity game detected" if result["is_unity"] else "Unity game not detected")
-                for key in ("unity_version", "runtime", "streaming_assets", "addressables", "compatibility"):
-                    if key in result:
-                        print(f"{key}: {result[key]}")
+                _print_analysis(result)
             return 0 if result["is_unity"] else 1
         if args.command == "init":
             profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))

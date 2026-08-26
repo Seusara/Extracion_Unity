@@ -7,6 +7,7 @@ def test_registry_exposes_all_current_adapters() -> None:
     assert list_adapters() == [
         "holyknight-encrypted-tsv",
         "streamingassets-csv",
+        "unity-addressables-textasset",
         "unity-textasset-json",
     ]
 

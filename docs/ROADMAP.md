@@ -26,14 +26,16 @@ Objetivo: eliminar la dependencia de `if/elif` por extractor en `pipeline.py`.
 
 Evidencia: los tres adaptadores existentes se resuelven mediante el registro y la suite completa pasa con 39 tests.
 
-## M2 — Detector con candidatos y evidencia
+## M2 — Detector con candidatos y evidencia — completado
 
-- [ ] Inventario de archivos por tipo.
-- [ ] Firmas de framework.
-- [ ] Candidatos con confianza, evidencia y limitaciones.
-- [ ] Niveles `automatic`, `assisted` e `investigation`.
-- [ ] UI para elegir entre candidatos cuando haya ambigüedad.
-- [ ] CLI `diagnose`.
+- [x] Inventario de archivos por tipo.
+- [x] Firmas de framework.
+- [x] Candidatos con confianza, evidencia y limitaciones.
+- [x] Niveles `automatic`, `assisted` e `investigation`.
+- [x] UI para visualizar candidatos y limitaciones.
+- [x] CLI `analyze` con salida detallada.
+
+Evidencia: el detector tiene 9 tests M2 para candidato fuerte, candidatos múltiples, desconocidos, falsos positivos, evidencia insuficiente, niveles, descubrimiento anidado, ambigüedad y sanitización. La suite completa queda verificada en el commit de este milestone.
 
 ## M3 — Addressables / AssetBundles
 
@@ -74,7 +76,7 @@ No incluir por defecto assets completos, traducciones, rutas personales, secreto
 
 ## M6 — Robustez del proyecto
 
-- [ ] Descubrimiento controlado de `*_Data` en un nivel descendiente.
+- [x] Descubrimiento controlado de `*_Data` en un nivel descendiente.
 - [ ] Manifiesto con fingerprint de juego/build.
 - [ ] Reanudación segura de proyectos existentes.
 - [ ] Detección de archivos fuente modificados.

@@ -22,6 +22,8 @@ class AdapterSpec:
         }
 
     def validate_profile(self, profile: dict) -> None:
+        if self.id == "unity-addressables-textasset":
+            raise ValueError("Addressables adapter is diagnostic-only; full extraction is not available yet")
         if self.id == "streamingassets-csv":
             if not isinstance(profile.get("files"), list) or not profile["files"]:
                 raise ValueError("Profile must declare at least one file rule")
@@ -68,6 +70,10 @@ _ADAPTERS = {
     "holyknight-encrypted-tsv": AdapterSpec(
         "holyknight-encrypted-tsv", 1, ("encrypted-tsv",), _COMMON_CAPABILITIES,
         ("supports the known encrypted TSV layout",),
+    ),
+    "unity-addressables-textasset": AdapterSpec(
+        "unity-addressables-textasset", 1, ("assetbundle", "addressables"), ("detect", "analyze"),
+        ("Catalog Addressables not verified", "Full AssetBundle extraction/injection is not available yet"),
     ),
 }
 

@@ -137,15 +137,24 @@ def format_analysis(result: dict) -> str:
         return f"No se detectó un juego Unity: {result.get('reason', 'motivo desconocido')}"
     version = result.get("unity_version", "unknown")
     unity_label = f"Unity {version} detectado" if version != "unknown" else "Unity detectado (versión desconocida)"
-    return "\n".join(
-        [
-            unity_label,
-            f"Ejecución: {result.get('runtime', 'desconocida')}",
-            f"StreamingAssets: {'sí' if result.get('streaming_assets') else 'no'}",
-            f"Assets detectados: {len(result.get('asset_files', []))}",
-            f"Compatibilidad: {result.get('compatibility', 'desconocida')}",
-        ]
-    )
+    lines = [
+        unity_label,
+        f"Ejecución: {result.get('runtime', 'desconocida')}",
+        f"StreamingAssets: {'sí' if result.get('streaming_assets') else 'no'}",
+        f"Assets detectados: {len(result.get('asset_files', []))}",
+        f"Compatibilidad: {result.get('compatibility_level', result.get('compatibility', 'desconocida'))}",
+    ]
+    candidates = result.get("candidates", [])
+    if candidates:
+        lines.append("Candidatos:")
+        for index, candidate in enumerate(candidates, start=1):
+            lines.append(f"{index}. {candidate['adapter_id']} | confidence: {candidate['confidence']:.2f}")
+            lines.append("   Evidencia: " + "; ".join(candidate["evidence"][:3]))
+            if candidate.get("limitations"):
+                lines.append("   Limitaciones: " + "; ".join(candidate["limitations"][:3]))
+    else:
+        lines.append("Candidatos: ninguno; requiere investigación")
+    return "\n".join(lines)
 
 
 def format_validation(result: dict) -> str:

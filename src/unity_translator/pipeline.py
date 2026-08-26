@@ -46,7 +46,7 @@ def analyze(game_path: str | Path) -> dict:
 def create_project(game_path: str | Path, project_path: str | Path, profile: dict) -> dict:
     game = Path(game_path).resolve()
     project = Path(project_path).resolve()
-    analysis = analyze_game(game)
+    analysis = analyze_game(game, sanitize_paths=False)
     if not analysis["is_unity"]:
         raise ValueError(analysis["reason"])
     extractor = profile.get("extractor")

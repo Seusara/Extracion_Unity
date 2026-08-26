@@ -78,7 +78,7 @@ Detecta:
 - assets y bundles visibles;
 - señales por nombres de archivos.
 
-La implementación actual todavía es heurística y debe evolucionar hacia candidatos con evidencia y confianza.
+La implementación actual produce inventario, firmas, candidatos ordenados por confianza, evidencia, limitaciones y niveles `automatic`, `assisted` e `investigation`. La búsqueda de `*_Data` está limitada a la carpeta seleccionada y un nivel descendiente; no realiza barridos ilimitados.
 
 ### Registro de adaptadores
 
@@ -187,6 +187,8 @@ Adaptadores funcionales:
 - `streamingassets-csv` — experimental.
 - `unity-textasset-json` — experimental.
 - `holyknight-encrypted-tsv` — experimental y probado con Holy Knight Ricca.
+
+El analizador genérico M2 también registra el candidato diagnóstico `unity-addressables-textasset` cuando encuentra `StreamingAssets/aa` y bundles. Ese candidato solo tiene capacidades de análisis/detección y no puede crear un proyecto extraíble; esto es intencional y evita aplicar un perfil incompatible.
 
 Detección parcial:
 
