@@ -42,6 +42,7 @@ class AdapterSpec:
             "streamingassets-csv": pipeline._extract_streaming_csv,
             "unity-textasset-json": pipeline._extract_unity_json,
             "holyknight-encrypted-tsv": pipeline.extract_holyknight,
+            "naninovel-addressables": pipeline._extract_naninovel,
         }
         return handlers[self.id](project, manifest)
 
@@ -54,6 +55,8 @@ class AdapterSpec:
             return pipeline._inject_unity_json_file(path, entries, profile)
         if asset_type == "HolyKnightEncryptedTSV":
             return pipeline.inject_holyknight_file(path, entries)
+        if asset_type == "NaninovelScript":
+            raise ValueError("Naninovel bundle injection is not available until serialized writer verification passes")
         raise ValueError(f"Unsupported asset type: {asset_type}")
 
 
@@ -74,6 +77,11 @@ _ADAPTERS = {
     "unity-addressables-textasset": AdapterSpec(
         "unity-addressables-textasset", 1, ("assetbundle", "addressables"), ("detect", "analyze"),
         ("Catalog Addressables not verified", "Full AssetBundle extraction/injection is not available yet"),
+    ),
+    "naninovel-addressables": AdapterSpec(
+        "naninovel-addressables", 1, ("addressables", "assetbundle", "naninovel"),
+        ("detect", "analyze", "extract", "export", "import", "validate"),
+        ("Serialized Naninovel script writer and bundle injection are not verified",),
     ),
 }
 

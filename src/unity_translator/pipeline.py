@@ -19,6 +19,7 @@ from .providers.manual import ManualProvider
 from .storage import read_json, sha256_file, sha256_text, write_json_atomic
 from .unity_json import apply_translations, extract_json_entries
 from .validation import validate_pair
+from .naninovel import NaninovelParser
 
 TOOL_VERSION = "0.1.0"
 CSV_FIELDS = ["id", "original", "translation", "intentionally_empty"]
@@ -218,6 +219,18 @@ def _extract_unity_json(project: Path, manifest: dict) -> tuple[list[dict], dict
     )
     _close_unity_environment(env)
     return entries, {relative_game: sha256_file(source)}
+
+
+def _extract_naninovel(project: Path, manifest: dict) -> tuple[list[dict], dict[str, str]]:
+    game = Path(manifest["game_path"])
+    parser = NaninovelParser(game)
+    entries = parser.extract()
+    source_files: dict[str, str] = {}
+    for entry in entries:
+        relative = entry["source_file"]
+        source = game / relative
+        source_files[relative] = sha256_file(source)
+    return entries, source_files
 
 
 def extract(project_path: str | Path) -> list[dict]:

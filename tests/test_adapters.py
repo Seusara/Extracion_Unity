@@ -6,6 +6,7 @@ from unity_translator.adapters import get_adapter, list_adapters
 def test_registry_exposes_all_current_adapters() -> None:
     assert list_adapters() == [
         "holyknight-encrypted-tsv",
+        "naninovel-addressables",
         "streamingassets-csv",
         "unity-addressables-textasset",
         "unity-textasset-json",
