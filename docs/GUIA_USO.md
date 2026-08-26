@@ -2,7 +2,7 @@
 
 Unity Translator es una aplicación de escritorio para **extraer, editar, validar y reinyectar textos de juegos Unity** sin modificar la instalación original. El flujo funciona offline y genera siempre una copia separada para las pruebas.
 
-> **Estado del soporte:** experimental. Actualmente se soportan perfiles para CSV dentro de `StreamingAssets` y `TextAsset` JSON dentro de archivos Unity. No todos los juegos Unity utilizan las mismas estructuras.
+> **Estado del soporte:** experimental. Actualmente se soportan CSV dentro de `StreamingAssets`, `TextAsset` JSON dentro de archivos Unity y tablas TSV cifradas de Holy Knight Ricca. No todos los juegos Unity utilizan las mismas estructuras.
 
 ---
 
@@ -185,6 +185,7 @@ La aplicación muestra en el registro:
 - presencia de `StreamingAssets`;
 - presencia de Addressables;
 - compatibilidad estimada.
+- adaptador/perfil automático cuando una familia conocida coincide.
 
 El análisis no extrae ni modifica archivos. Si el resultado no corresponde al juego elegido, detén el flujo y revisa la ruta.
 
@@ -200,6 +201,8 @@ Si aparece un error:
 - verifica que la ruta del proyecto sea escribible;
 - verifica que el perfil sea un JSON válido;
 - verifica que el perfil corresponda al juego.
+
+Si el análisis completó el campo como `[Automático]`, no hace falta seleccionar un JSON manualmente.
 
 ### Paso 4: extraer los textos
 

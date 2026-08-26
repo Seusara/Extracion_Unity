@@ -11,6 +11,7 @@ from pathlib import Path
 
 import UnityPy
 
+from .adapters import get_adapter
 from .analyzer import analyze_game
 from .holyknight import extract as extract_holyknight
 from .holyknight import inject_file as inject_holyknight_file
@@ -49,19 +50,8 @@ def create_project(game_path: str | Path, project_path: str | Path, profile: dic
     if not analysis["is_unity"]:
         raise ValueError(analysis["reason"])
     extractor = profile.get("extractor")
-    if extractor == "streamingassets-csv":
-        if not isinstance(profile.get("files"), list) or not profile["files"]:
-            raise ValueError("Profile must declare at least one file rule")
-    elif extractor == "unity-textasset-json":
-        required = ("asset_file", "list_key", "id_field", "text_field", "textasset")
-        missing = [field for field in required if field not in profile]
-        if missing:
-            raise ValueError(f"Unity JSON profile missing fields: {', '.join(missing)}")
-    elif extractor == "holyknight-encrypted-tsv":
-        if not isinstance(profile.get("source_root"), str) or not profile["source_root"]:
-            raise ValueError("Holy Knight profile must declare source_root")
-    else:
-        raise ValueError("Supported extractors: streamingassets-csv, unity-textasset-json, holyknight-encrypted-tsv")
+    adapter = get_adapter(extractor)
+    adapter.validate_profile(profile)
     for folder in ("originals", "translations", "builds", "backups", "logs"):
         (project / folder).mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -71,6 +61,7 @@ def create_project(game_path: str | Path, project_path: str | Path, profile: dic
         "game_path": str(game),
         "analysis": analysis,
         "extractor": {"name": extractor, "version": 1, "support": "experimental"},
+        "adapter": adapter.descriptor(),
         "profile": deepcopy(profile),
         "source_files": {},
     }
@@ -231,14 +222,8 @@ def _extract_unity_json(project: Path, manifest: dict) -> tuple[list[dict], dict
 
 def extract(project_path: str | Path) -> list[dict]:
     project, manifest = _project(project_path)
-    if manifest["extractor"]["name"] == "streamingassets-csv":
-        entries, source_files = _extract_streaming_csv(project, manifest)
-    elif manifest["extractor"]["name"] == "unity-textasset-json":
-        entries, source_files = _extract_unity_json(project, manifest)
-    elif manifest["extractor"]["name"] == "holyknight-encrypted-tsv":
-        entries, source_files = extract_holyknight(project, manifest)
-    else:
-        raise ValueError(f"Unsupported project extractor: {manifest['extractor']['name']}")
+    adapter = get_adapter(manifest["extractor"]["name"])
+    entries, source_files = adapter.extract(project, manifest)
     manifest["source_files"] = source_files
     manifest["extracted_at"] = _now()
     ir = {"schema_version": 1, "extractor": manifest["extractor"], "entries": entries}
@@ -468,6 +453,7 @@ def inject(project_path: str | Path) -> Path:
             f"Informe detallado CSV: {report['report_csv']}"
         )
     ir = read_json(project / "translation.json")
+    adapter = get_adapter(manifest["extractor"]["name"])
     stamp = _stamp()
     backup = project / "backups" / stamp
     shutil.copytree(project / "originals", backup / "originals")
@@ -484,14 +470,7 @@ def inject(project_path: str | Path) -> Path:
                 grouped.setdefault(entry["source_file"], []).append(entry)
         for relative, entries in grouped.items():
             path = staging / Path(relative)
-            if entries[0]["asset_type"] == "StreamingAssetsCSV":
-                _inject_csv_file(path, entries)
-            elif entries[0]["asset_type"] == "TextAssetJSON":
-                _inject_unity_json_file(path, entries, manifest["profile"])
-            elif entries[0]["asset_type"] == "HolyKnightEncryptedTSV":
-                inject_holyknight_file(path, entries)
-            else:
-                raise ValueError(f"Unsupported asset type: {entries[0]['asset_type']}")
+            adapter.inject(path, entries, manifest["profile"])
         final.parent.mkdir(parents=True, exist_ok=False)
         shutil.move(str(staging), str(final))
     except BaseException:

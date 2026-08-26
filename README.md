@@ -1,6 +1,6 @@
 # Unity Translator MVP
 
-Motor offline y determinista para extraer, editar y reinyectar traducciones de juegos Unity. El soporte actual es **experimental** y cubre CSV bajo `StreamingAssets` y `TextAsset` JSON dentro de archivos Unity, siempre con un perfil explícito.
+Motor offline y determinista para extraer, editar y reinyectar traducciones de juegos Unity. El soporte actual es **experimental** y cubre CSV bajo `StreamingAssets`, `TextAsset` JSON dentro de archivos Unity y tablas TSV cifradas de Holy Knight Ricca. El core usa un registro extensible de adaptadores; los formatos todavía desconocidos requieren investigación.
 
 ## Requisitos
 
@@ -106,9 +106,11 @@ La app modifica el `TextAsset` únicamente en el build generado, guarda UnityPy 
 
 ## Estado
 
-- Core, IR JSON, CSV estricto, validación, backup, build separado, restore y CLI: implementados.
+- Core, registro de adaptadores, IR JSON, CSV estricto, validación, backup, build separado, restore y CLI: implementados.
 - TextAsset JSON con UnityPy: implementado y probado estructuralmente sobre ERICA Knight of the Sun 0.1.9.2.
+- TSV cifrado de Holy Knight Ricca: implementado, autodetectado y probado con 688 archivos/14.394 cadenas.
 - Otros assets serializados y MonoBehaviour custom: pendientes.
+- Addressables/AssetBundles: detectados, pero todavía pendientes de extracción/reinyección.
 - UI mínima y editor manual: implementados con Tkinter.
 - Compatibilidad real: `experimental` hasta completar playtesting del juego resultante.
 

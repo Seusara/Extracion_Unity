@@ -19,9 +19,9 @@ El proyecto debe:
 
 - Repositorio: `https://github.com/Seusara/Extracion_Unity`
 - Rama de trabajo: `feat/mvp-deterministic-core`
-- Último commit relevante: `7892377 fix: expose validation details when injection is blocked`
+- Último commit relevante: `3928ab6 docs: add Unity continuation handoff` (la integración del registro queda en el commit siguiente de esta sesión)
 - Proyecto local: `C:\Users\aron-\OneDrive\Desktop\app extraccion unity`
-- Tests actuales: 36 pasando.
+- Tests actuales antes de este milestone: 36 pasando; el registro de adaptadores agrega 3 tests.
 - Verificación habitual:
 
 ```bash
@@ -186,6 +186,12 @@ son texto plano válido y no deberían considerarse código dañado.
 Las advertencias de `unchanged_translation` significan que la traducción es idéntica al original; no son necesariamente errores de formato.
 
 No se debe eliminar la validación de placeholders, etiquetas o escapes para permitir la inyección. Primero hay que revisar el informe detallado y determinar si el formato del juego utiliza una sintaxis especial que el validador no reconoce.
+
+## Registro de adaptadores
+
+El core ahora dispone de `src/unity_translator/adapters.py`, con descriptores, capacidades, limitaciones, validación de perfiles y delegación común para los tres adaptadores existentes. `pipeline.py` consulta el registro para crear proyectos, extraer e inyectar.
+
+El registro es el primer paso de la arquitectura extensible. Las implementaciones concretas todavía viven en sus módulos actuales y deben extraerse gradualmente del pipeline solo cuando exista una prueba que justifique el cambio.
 
 ## Siguiente formato prioritario: Addressables / AssetBundles
 
