@@ -10,6 +10,7 @@ import UnityPy
 from .adapters import get_adapter, list_adapters
 from .holyknight import PROFILE as HOLYKNIGHT_PROFILE
 from .holyknight import detect as detect_holyknight
+from .naninovel import detect_naninovel
 
 _MAX_DISCOVERY_DEPTH = 2
 _FORMATS = {".json", ".csv", ".tsv", ".xml", ".txt", ".dat"}
@@ -188,6 +189,14 @@ def _detect_candidates(data_dir: Path, root: Path, inventory: dict) -> list[dict
             ["StreamingAssets/aa detected", f"{len(inventory['bundle_files'])} AssetBundle file(s) found"],
             ["Catalog Addressables not verified", "Full AssetBundle extraction/injection is not available yet"],
         ))
+    naninovel = detect_naninovel(root)
+    if naninovel["family"]:
+        candidates.append(_candidate(
+            "naninovel-addressables",
+            naninovel["confidence"],
+            naninovel["evidence"] + [f"{naninovel['script_bundles']} Addressables bundle(s) in the build"],
+            ["Serialized Naninovel script writer and bundle injection are not verified"],
+        ))
     return sorted(candidates, key=lambda item: (-item["confidence"], item["adapter_id"]))
 
 
@@ -265,4 +274,6 @@ def detect_profile(game_path: Path) -> dict | None:
             "extractor": "streamingassets-csv",
             "files": [{"glob": "dialogue.csv", "columns": [1], "header": True}],
         }
+    if detect_naninovel(game_path)["family"]:
+        return {"extractor": "naninovel-addressables"}
     return None
