@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
 from .analyzer import detect_profile
+from .diagnostic_package import generate_diagnostic_package
 from .pipeline import (
     analyze,
     auto_fix_validation,
@@ -589,8 +590,11 @@ class DesktopApp:
         button_analyze = ttk.Button(phase1, text="Analizar", command=self._analyze)
         button_analyze.grid(row=1, column=0, padx=(0, 4), sticky="ew")
         self._buttons.append(button_analyze)
+        button_diagnose = ttk.Button(phase1, text="Generar paquete diagnóstico", command=self._diagnose)
+        button_diagnose.grid(row=1, column=1, padx=(4, 0), sticky="ew")
+        self._buttons.append(button_diagnose)
         button_create = ttk.Button(phase1, text="Crear proyecto", command=self._create_project)
-        button_create.grid(row=1, column=1, padx=(4, 0), sticky="ew")
+        button_create.grid(row=2, column=0, columnspan=2, pady=(8, 0), sticky="ew")
         self._buttons.append(button_create)
 
         # Phase 2: Extraction and Export
@@ -810,6 +814,18 @@ class DesktopApp:
             return message
 
         self._run("Análisis", operation)
+
+    def _diagnose(self) -> None:
+        def operation() -> str:
+            game = _required_path(self.game.get(), "Juego")
+            package = generate_diagnostic_package(game)
+            return (
+                f"Paquete diagnóstico creado en {package.zip_path}"
+                f"\nCarpeta: {package.directory}"
+                "\nArchivos originales incluidos: NO"
+            )
+
+        self._run("Diagnóstico", operation)
 
     def _set_detected_profile(self, profile: dict) -> None:
         self._detected_profile = profile

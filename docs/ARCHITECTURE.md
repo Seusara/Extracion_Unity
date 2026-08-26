@@ -80,6 +80,10 @@ Detecta:
 
 La implementación actual produce inventario, firmas, candidatos ordenados por confianza, evidencia, limitaciones y niveles `automatic`, `assisted` e `investigation`. La búsqueda de `*_Data` está limitada a la carpeta seleccionada y un nivel descendiente; no realiza barridos ilimitados.
 
+### `diagnostic_package.py`
+
+Consume el resultado M2 y genera un paquete local `AI_CONTEXT/` más `AI_CONTEXT.zip` para investigación humana o por cualquier agente. Centraliza sanitización de rutas, exclusión de secretos/assets/ejecutables, límites del árbol y logs. El ZIP solo contiene metadata y guías generadas; no copia el juego. CLI: `unity-translator diagnose GAME [--output DIR]`.
+
 ### Registro de adaptadores
 
 El registro será el único punto donde se enumeran adaptadores disponibles. El core debe consultar el registro, no conocer detalles de cada familia de formatos.
@@ -117,6 +121,10 @@ Validadores comunes de placeholders, Rich Text/TMP, escapes y estados. Los adapt
 ### `storage.py`
 
 Escrituras atómicas, JSON y hashes.
+
+### `diagnostic_package.py`
+
+Consume el resultado público sanitizado de M2 y genera un paquete local de investigación. No contiene lógica de extracción ni intenta abrir o modificar bundles. El árbol y el ZIP se construyen desde metadata; los archivos originales nunca se copian.
 
 ## 5. Translation IR
 
@@ -202,6 +210,8 @@ Pendientes principales:
 - Naninovel, Pixel Crushers, 2D Toolkit y otros frameworks.
 - Paquete de diagnóstico sanitizado.
 - Playtesting automatizado o checklist reproducible por adaptador.
+
+El paquete diagnóstico se crea con `unity-translator diagnose <game>`, incluso para análisis `automatic` o `assisted`, para facilitar debugging. Sus límites y exclusiones están documentados en `adapter_api.md` y `expected_tests.md` dentro del paquete.
 
 ## 9. Decisiones de no alcance inmediato
 

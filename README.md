@@ -50,7 +50,12 @@ El `.spec` incluye Tkinter/Tcl/Tk, UnityPy, dependencias detectadas, assets de l
 
 ```bash
 unity-translator analyze "C:/Games/MyGame"
+unity-translator diagnose "C:/Games/MyUnknownGame" --output "C:/Diagnostics/MyUnknownGame"
+```
 
+`diagnose` genera únicamente metadata sanitizada, estructura acotada, señales, assemblies por nombre, candidatos, logs y guías en `AI_CONTEXT/AI_CONTEXT.zip`; no copia ejecutables, DLLs, assets, saves, traducciones completas ni secretos.
+
+```bash
 unity-translator init "C:/Games/MyGame" "C:/Translations/MyProject" \
   --profile examples/profiles/streamingassets-dialogue.json
 

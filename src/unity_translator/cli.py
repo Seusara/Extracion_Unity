@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+from .diagnostic_package import generate_diagnostic_package
 from .pipeline import analyze, create_project, export_csv, extract, import_csv, inject, restore, validate
 
 
@@ -35,6 +36,12 @@ def _parser() -> argparse.ArgumentParser:
     analyze_cmd = commands.add_parser("analyze")
     analyze_cmd.add_argument("game")
     analyze_cmd.add_argument("--json", action="store_true")
+
+    diagnose_cmd = commands.add_parser("diagnose", help="Generate a sanitized investigation package")
+    diagnose_cmd.add_argument("game")
+    diagnose_cmd.add_argument("--output", help="Output directory for AI_CONTEXT and AI_CONTEXT.zip")
+    diagnose_cmd.add_argument("--max-depth", type=int, default=5)
+    diagnose_cmd.add_argument("--max-files", type=int, default=500)
 
     init_cmd = commands.add_parser("init")
     init_cmd.add_argument("game")
@@ -76,6 +83,20 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 _print_analysis(result)
             return 0 if result["is_unity"] else 1
+        if args.command == "diagnose":
+            package = generate_diagnostic_package(
+                args.game,
+                args.output,
+                max_depth=args.max_depth,
+                max_files=args.max_files,
+            )
+            result = json.loads((package.directory / "game_profile.json").read_text(encoding="utf-8"))
+            print("Analysis complete.")
+            print(f"Compatibility: {result.get('compatibility_level', 'investigation').upper()}")
+            print(f"Diagnostic package: {package.zip_path}")
+            print("Contains: game profile, candidates, signatures, directory structure, logs, adapter API, expected tests")
+            print("Original game assets included: NO")
+            return 0
         if args.command == "init":
             profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
             create_project(args.game, args.project, profile)

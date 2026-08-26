@@ -8,15 +8,11 @@
 - [x] CSV estricto con round-trip.
 - [x] Validación de placeholders, tags, escapes y hashes.
 - [x] Backups, staging, builds separados y restore.
-- [x] Perfil CSV en StreamingAssets.
-- [x] Perfil TextAsset JSON con UnityPy.
-- [x] Adaptador para TSV cifrado de Holy Knight Ricca.
+- [x] Perfiles CSV, TextAsset JSON y TSV cifrado.
 - [x] Detección automática inicial.
 - [x] Informes detallados JSON/CSV de validación.
 
 ## M1 — Registro de adaptadores — completado
-
-Objetivo: eliminar la dependencia de `if/elif` por extractor en `pipeline.py`.
 
 - [x] Descriptor común de adaptador.
 - [x] Registro determinista por ID/version.
@@ -24,7 +20,7 @@ Objetivo: eliminar la dependencia de `if/elif` por extractor en `pipeline.py`.
 - [x] Compatibilidad hacia atrás con manifiestos actuales.
 - [x] Tests de registro y resolución.
 
-Evidencia: los tres adaptadores existentes se resuelven mediante el registro y la suite completa pasa con 39 tests.
+Evidencia: los adaptadores existentes se resuelven mediante el registro y la suite pasó con 39 tests al cerrar M1.
 
 ## M2 — Detector con candidatos y evidencia — completado
 
@@ -34,13 +30,30 @@ Evidencia: los tres adaptadores existentes se resuelven mediante el registro y l
 - [x] Niveles `automatic`, `assisted` e `investigation`.
 - [x] UI para visualizar candidatos y limitaciones.
 - [x] CLI `analyze` con salida detallada.
+- [x] Descubrimiento controlado de `*_Data` en un nivel descendiente.
 
-Evidencia: el detector tiene 9 tests M2 para candidato fuerte, candidatos múltiples, desconocidos, falsos positivos, evidencia insuficiente, niveles, descubrimiento anidado, ambigüedad y sanitización. La suite completa queda verificada en el commit de este milestone.
+Evidencia: 9 tests M2 cubren candidatos fuertes/múltiples, desconocidos, falsos positivos, evidencia insuficiente, niveles, ambigüedad, descubrimiento anidado y sanitización.
 
-## M3 — Addressables / AssetBundles
+## M3 — Investigation Package — completado
 
-- [ ] Detección de `StreamingAssets/aa`.
-- [ ] Inventario de catálogos y bundles.
+- [x] `AI_CONTEXT/` local sanitizado y `AI_CONTEXT.zip`.
+- [x] README, problem statement y perfil derivado de M2.
+- [x] Candidatos y firmas preservados.
+- [x] Árbol acotado con marca de truncamiento.
+- [x] Assemblies por nombre, sin contenido de DLL.
+- [x] Logs sanitizados.
+- [x] API de adaptadores, protocolo de investigación y tests esperados.
+- [x] CLI `diagnose` manual para cualquier nivel.
+- [x] Botón mínimo equivalente en GUI.
+- [x] Exclusión de assets, ejecutables, secretos, saves y rutas personales.
+
+Evidencia: 4 tests específicos cubren generación, sanitización, exclusiones, truncamiento, contenido permitido del ZIP y CLI. Suite total verificada con 52 tests.
+
+M3 no implementa extracción/reinyección de Addressables o AssetBundles, no conecta Supabase y no ejecuta IA dentro de la aplicación.
+
+## M4 — Addressables / AssetBundles
+
+- [ ] Detección e inventario de catálogos y bundles ya está disponible en M2.
 - [ ] Inspección read-only con UnityPy.
 - [ ] Descubrimiento de TextAssets/JSON/CSV/String Tables.
 - [ ] Perfil generado con localizadores.
@@ -48,35 +61,20 @@ Evidencia: el detector tiene 9 tests M2 para candidato fuerte, candidatos múlti
 - [ ] Reinyección sobre copia.
 - [ ] Verificación de bundles, catálogo y CRC.
 
-El caso de prueba inicial es CIRCLEMATE, pero el adaptador debe basarse en la familia Addressables, no en el nombre del juego.
+El caso inicial será CIRCLEMATE, pero el adaptador debe basarse en la familia Addressables, nunca en el nombre del juego.
 
-## M4 — Unity Localization y frameworks
+## M5 — Frameworks de texto
 
 - [ ] Unity Localization/String Tables.
 - [ ] Naninovel.
 - [ ] Pixel Crushers.
 - [ ] 2D Toolkit.
-- [ ] Otros frameworks solo cuando exista evidencia y fixture.
+- [ ] Otros frameworks solo con evidencia, fixture y tests.
 
-Cada framework debe incorporarse como adaptador independiente con tests y limitaciones explícitas.
-
-## M5 — Paquete de investigación
-
-- [ ] `diagnostics/` dentro del proyecto.
-- [ ] `problem.md`.
-- [ ] `diagnostics.json`.
-- [ ] estructura de directorios sanitizada.
-- [ ] firmas detectadas.
-- [ ] assemblies enumerados sin contenido innecesario.
-- [ ] logs sanitizados.
-- [ ] guía de API del adaptador.
-- [ ] tests esperados.
-
-No incluir por defecto assets completos, traducciones, rutas personales, secretos ni contenido protegido innecesario.
+Cada framework debe incorporarse como adaptador independiente con limitaciones explícitas.
 
 ## M6 — Robustez del proyecto
 
-- [x] Descubrimiento controlado de `*_Data` en un nivel descendiente.
 - [ ] Manifiesto con fingerprint de juego/build.
 - [ ] Reanudación segura de proyectos existentes.
 - [ ] Detección de archivos fuente modificados.
@@ -106,14 +104,12 @@ No incluir por defecto assets completos, traducciones, rutas personales, secreto
 
 ## Criterio general de avance
 
-Cada milestone debe seguir:
-
 ```text
 test RED
 → implementación mínima
 → test GREEN
 → suite completa
-→ prueba real o fixture reproducible
+→ fixture o prueba real
 → documentación de evidencia
 → commit pequeño
 ```
