@@ -56,7 +56,7 @@ class AdapterSpec:
         if asset_type == "HolyKnightEncryptedTSV":
             return pipeline.inject_holyknight_file(path, entries)
         if asset_type == "NaninovelScript":
-            raise ValueError("Naninovel bundle injection is not available until serialized writer verification passes")
+            return pipeline._inject_naninovel_file(path, entries)
         raise ValueError(f"Unsupported asset type: {asset_type}")
 
 
@@ -80,8 +80,8 @@ _ADAPTERS = {
     ),
     "naninovel-addressables": AdapterSpec(
         "naninovel-addressables", 1, ("addressables", "assetbundle", "naninovel"),
-        ("detect", "analyze", "extract", "export", "import", "validate"),
-        ("Serialized Naninovel script writer and bundle injection are not verified",),
+        ("detect", "analyze", "extract", "export", "import", "validate", "inject", "verify"),
+        ("Unsupported Naninovel records remain unchanged",),
     ),
 }
 

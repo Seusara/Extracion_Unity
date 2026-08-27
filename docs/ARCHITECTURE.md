@@ -195,19 +195,20 @@ Adaptadores funcionales:
 - `streamingassets-csv` — experimental.
 - `unity-textasset-json` — experimental.
 - `holyknight-encrypted-tsv` — experimental y probado con Holy Knight Ricca.
+- `naninovel-addressables` — experimental; extracción e inyección de una entrada real Naninovel verificadas sobre una copia completa de BOXMAN.
 
 El analizador genérico M2 también registra el candidato diagnóstico `unity-addressables-textasset` cuando encuentra `StreamingAssets/aa` y bundles. Ese candidato solo tiene capacidades de análisis/detección y no puede crear un proyecto extraíble; esto es intencional y evita aplicar un perfil incompatible.
 
 Detección parcial:
 
-- `StreamingAssets/aa` y bundles Addressables — detectados, sin extractor automático todavía.
+- `StreamingAssets/aa` y bundles Addressables — detectados; el perfil Naninovel experimental puede extraer e inyectar scripts Naninovel identificados por evidencia.
 
 Pendientes principales:
 
-- AssetBundles/Addressables.
+- CRC/catalog de Addressables y validación visual de outputs.
 - Unity Localization/String Tables.
 - MonoBehaviour custom.
-- Naninovel, Pixel Crushers, 2D Toolkit y otros frameworks.
+- Pixel Crushers, 2D Toolkit y otros frameworks.
 - Paquete de diagnóstico sanitizado.
 - Playtesting automatizado o checklist reproducible por adaptador.
 

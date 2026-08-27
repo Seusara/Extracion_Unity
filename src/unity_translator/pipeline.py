@@ -20,6 +20,7 @@ from .storage import read_json, sha256_file, sha256_text, write_json_atomic
 from .unity_json import apply_translations, extract_json_entries
 from .validation import validate_pair
 from .naninovel import NaninovelParser
+from .naninovel_inject import inject_bundle as inject_naninovel_bundle
 
 TOOL_VERSION = "0.1.0"
 CSV_FIELDS = ["id", "original", "translation", "intentionally_empty"]
@@ -228,9 +229,25 @@ def _extract_naninovel(project: Path, manifest: dict) -> tuple[list[dict], dict[
     source_files: dict[str, str] = {}
     for entry in entries:
         relative = entry["source_file"]
-        source = game / relative
-        source_files[relative] = sha256_file(source)
+        source = (game / relative).resolve()
+        try:
+            source.relative_to(game.resolve())
+        except ValueError as error:
+            raise ValueError(f"Naninovel source path escapes game root: {relative}") from error
+        if not source.is_file():
+            raise FileNotFoundError(f"Naninovel source bundle not found: {source}")
+        if relative not in source_files:
+            snapshot = project / "originals" / Path(relative)
+            snapshot.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, snapshot)
+            source_files[relative] = sha256_file(source)
+            if sha256_file(snapshot) != source_files[relative]:
+                raise RuntimeError(f"Naninovel snapshot hash mismatch: {relative}")
     return entries, source_files
+
+
+def _inject_naninovel_file(path: Path, entries: list[dict]) -> None:
+    inject_naninovel_bundle(path, entries)
 
 
 def extract(project_path: str | Path) -> list[dict]:

@@ -115,7 +115,7 @@ La app modifica el `TextAsset` únicamente en el build generado, guarda UnityPy 
 - TextAsset JSON con UnityPy: implementado y probado estructuralmente sobre ERICA Knight of the Sun 0.1.9.2.
 - TSV cifrado de Holy Knight Ricca: implementado, autodetectado y probado con 688 archivos/14.394 cadenas.
 - Otros assets serializados y MonoBehaviour custom: pendientes.
-- Addressables/AssetBundles: detectados, pero todavía pendientes de extracción/reinyección.
+- Addressables/AssetBundles: el adaptador genérico sigue siendo diagnóstico; `naninovel-addressables` tiene extracción/reinyección experimental de scripts Naninovel validada sobre una copia real.
 - UI mínima y editor manual: implementados con Tkinter.
 - Compatibilidad real: `experimental` hasta completar playtesting del juego resultante.
 

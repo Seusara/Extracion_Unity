@@ -72,6 +72,7 @@ class NaninovelParser:
             return set()
         known: set[tuple[str, str]] = set()
         for dll in (self.data_dir / "Managed").glob("*.dll"):
+            pe = None
             try:
                 pe = dnfile.dnPE(str(dll))
                 if not pe.net or not pe.net.mdtables.TypeDef:
@@ -82,6 +83,9 @@ class NaninovelParser:
                     known.add((dll.stem, f"{namespace}.{cls}" if namespace else cls))
             except Exception:
                 continue
+            finally:
+                if pe is not None:
+                    pe.close()
         return known
 
     def _type_tree(self, assembly: str, fullname: str) -> TypeTreeNode:
@@ -185,6 +189,7 @@ class NaninovelParser:
                         continue
                     script_name, entries = self._parse_script(obj)
                     relative = bundle_path.relative_to(self.game_root).as_posix()
+                    occurrences: Counter[tuple[str, str]] = Counter()
                     for entry_index, (fullname, parsed) in enumerate(entries):
                         rule = TEXT_FIELDS.get(fullname)
                         if not rule or not parsed:
@@ -193,6 +198,8 @@ class NaninovelParser:
                             text = _parameter_value(parsed.get(field))
                             if not text.strip():
                                 continue
+                            occurrence = occurrences[(field, text)]
+                            occurrences[(field, text)] += 1
                             rows.append({
                                 "id": f"{relative}:{obj.path_id}:{entry_index}:{field}",
                                 "source_file": relative,
@@ -211,6 +218,8 @@ class NaninovelParser:
                                     "field": field,
                                     "bundle_hash": sha256_file(bundle_path),
                                     "category": rule[1],
+                                    "raw_occurrence": occurrence,
+                                    "entry_index": entry_index,
                                 },
                             })
             except Exception:

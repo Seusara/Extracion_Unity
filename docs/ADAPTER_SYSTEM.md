@@ -88,7 +88,7 @@ La detección puede devolver varios candidatos:
 - Reinyección cifrada sobre copia.
 - Actualmente es un adaptador de familia observada; debe separarse de cualquier nombre de juego.
 
-## Próximo adaptador: Addressables
+## Addressables y Naninovel
 
 Debe ser una familia genérica, no una condición `if game == CIRCLEMATE`.
 
@@ -106,6 +106,13 @@ Proceso esperado:
 10. Verificar bundle, catálogo, CRC y referencias antes de declarar éxito.
 
 Si el bundle no puede guardarse sin romper el catálogo, el adaptador debe quedar en `investigation` o `assisted`, no inyectar silenciosamente.
+
+El adaptador registrado `naninovel-addressables` implementa actualmente la
+extracción e inyección experimental de scripts Naninovel serializados dentro
+de bundles Addressables. Conserva bundle, asset, `path_id`, `entry_index` y
+campo en el IR; reconstruye con `write_typetree()` y reabre el bundle para
+comparar el valor serializado contra `translated_text`. La verificación de
+CRC/catalog y el playtesting visual siguen siendo gates separados.
 
 ## Validación específica
 

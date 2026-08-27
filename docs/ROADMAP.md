@@ -58,7 +58,7 @@ M3 no implementa extracción/reinyección de Addressables o AssetBundles, no con
 - [ ] Descubrimiento de TextAssets/JSON/CSV/String Tables.
 - [ ] Perfil generado con localizadores.
 - [ ] Extracción a IR.
-- [ ] Reinyección sobre copia.
+- [x] Reinyección Naninovel experimental sobre copia.
 - [ ] Verificación de bundles, catálogo y CRC.
 
 El caso inicial será CIRCLEMATE, pero el adaptador debe basarse en la familia Addressables, nunca en el nombre del juego.
@@ -66,7 +66,7 @@ El caso inicial será CIRCLEMATE, pero el adaptador debe basarse en la familia A
 ## M5 — Frameworks de texto
 
 - [ ] Unity Localization/String Tables.
-- [ ] Naninovel.
+- [x] Naninovel experimental: extracción, CSV, inyección y verificación post-reopen.
 - [ ] Pixel Crushers.
 - [ ] 2D Toolkit.
 - [ ] Otros frameworks solo con evidencia, fixture y tests.
