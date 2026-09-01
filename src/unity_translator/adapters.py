@@ -35,6 +35,11 @@ class AdapterSpec:
         elif self.id == "holyknight-encrypted-tsv":
             if not isinstance(profile.get("source_root"), str) or not profile["source_root"]:
                 raise ValueError("Holy Knight profile must declare source_root")
+        elif self.id == "naninovel-addressables":
+            # No profile fields beyond "extractor" exist yet: detection and extraction
+            # are fully automatic. Explicit no-op so the absence of rules here is a
+            # decision, not an oversight.
+            pass
 
     def extract(self, project, manifest):
         from . import pipeline

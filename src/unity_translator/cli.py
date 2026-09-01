@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+from .analyzer import detect_profile
 from .diagnostic_package import generate_diagnostic_package
 from .pipeline import analyze, create_project, export_csv, extract, import_csv, inject, restore, validate
 
@@ -46,7 +47,12 @@ def _parser() -> argparse.ArgumentParser:
     init_cmd = commands.add_parser("init")
     init_cmd.add_argument("game")
     init_cmd.add_argument("project")
-    init_cmd.add_argument("--profile", required=True)
+    profile_source = init_cmd.add_mutually_exclusive_group(required=True)
+    profile_source.add_argument("--profile", help="Path to a profile JSON file")
+    profile_source.add_argument(
+        "--auto", action="store_true",
+        help="Auto-detect a zero-config profile (e.g. naninovel-addressables) instead of --profile",
+    )
 
     extract_cmd = commands.add_parser("extract")
     extract_cmd.add_argument("project")
@@ -98,7 +104,13 @@ def main(argv: list[str] | None = None) -> int:
             print("Original game assets included: NO")
             return 0
         if args.command == "init":
-            profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
+            if args.auto:
+                profile = detect_profile(Path(args.game))
+                if profile is None:
+                    print("ERROR: No auto-detected profile is available for this game; use --profile instead", file=sys.stderr)
+                    return 2
+            else:
+                profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
             create_project(args.game, args.project, profile)
             print(f"[PROJECT] Created {Path(args.project).resolve()}")
         elif args.command == "extract":

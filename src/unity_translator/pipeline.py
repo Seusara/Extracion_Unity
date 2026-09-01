@@ -222,10 +222,34 @@ def _extract_unity_json(project: Path, manifest: dict) -> tuple[list[dict], dict
     return entries, {relative_game: sha256_file(source)}
 
 
+def _sanitize_diagnostic_key(value: str) -> str:
+    """Make a name safe to serialize as JSON even if it is raw-binary garbage.
+
+    A misaligned Naninovel recovery scan can read random bytes as a "class
+    name"; UnityPy decodes those with errors="surrogateescape", which can
+    produce unpaired surrogates that plain UTF-8 (and therefore json.dump)
+    cannot encode.
+    """
+    return value.encode("utf-8", errors="backslashreplace").decode("ascii")
+
+
 def _extract_naninovel(project: Path, manifest: dict) -> tuple[list[dict], dict[str, str]]:
     game = Path(manifest["game_path"])
     parser = NaninovelParser(game)
     entries = parser.extract()
+    unparsed_types = getattr(parser, "unparsed_types", None) or {}
+    failed_assemblies = getattr(parser, "failed_assemblies", None) or []
+    if unparsed_types or failed_assemblies:
+        report_path = project / "logs" / "naninovel-unparsed-types.json"
+        write_json_atomic(report_path, {
+            "unparsed_types": {_sanitize_diagnostic_key(name): count for name, count in unparsed_types.items()},
+            "failed_assemblies": [_sanitize_diagnostic_key(name) for name in failed_assemblies],
+        })
+        _log(
+            project, "EXTRACT",
+            f"{sum(unparsed_types.values())} Naninovel record(s) skipped, "
+            f"{len(failed_assemblies)} assembly(ies) failed to parse: {report_path}",
+        )
     source_files: dict[str, str] = {}
     for entry in entries:
         relative = entry["source_file"]

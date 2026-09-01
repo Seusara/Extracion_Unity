@@ -10,6 +10,7 @@ import UnityPy
 from UnityPy.helpers.TypeTreeHelper import EndianBinaryWriter, read_typetree, write_typetree
 from UnityPy.streams import EndianBinaryReader
 
+from . import addressables_catalog
 from .naninovel import NaninovelParser
 from .storage import sha256_file
 
@@ -219,6 +220,28 @@ def _rewrite_object(parser: NaninovelParser, obj: Any, replacements: dict[tuple[
     return changed
 
 
+def _neutralize_addressables_crc(data_dir: Path, bundle_path: Path) -> None:
+    """Zero this bundle's recorded CRC in every Addressables catalog that references it.
+
+    Local bundles load via ``AssetBundle.LoadFromFileAsync(path, crc)``; a
+    nonzero CRC that no longer matches the rewritten bundle bytes makes
+    Addressables refuse to load it (see docs/NANINOVEL_SUPPORT.md). A bundle
+    the catalog does not mention at all is left alone: nothing here depends
+    on it going through CRC verification.
+    """
+    if addressables_catalog.has_binary_catalog(data_dir):
+        raise RuntimeError(
+            f"Binary Addressables catalogs (catalog*.bin) are not supported yet; cannot verify or "
+            f"neutralize the CRC recorded for {bundle_path.name}. Refusing to ship an edited bundle "
+            "whose catalog entry cannot be confirmed safe."
+        )
+    for catalog_path in addressables_catalog.locate_catalogs(data_dir):
+        try:
+            addressables_catalog.neutralize_bundle_crc(catalog_path, bundle_path.name)
+        except addressables_catalog.BundleNotInCatalogError:
+            continue
+
+
 def inject_bundle(path: str | Path, entries: list[dict]) -> int:
     bundle_path = Path(path)
     if not entries:
@@ -245,7 +268,6 @@ def inject_bundle(path: str | Path, entries: list[dict]) -> int:
             changed += _rewrite_object(parser, obj, replacements)
         if changed != len(entries):
             raise ValueError(f"Expected {len(entries)} changes, applied {changed}")
-        obj.assets_file.mark_changed()
         with tempfile.TemporaryDirectory() as output_dir:
             environment.save(pack="lz4", out_path=output_dir)
             generated = Path(output_dir) / bundle_path.name
@@ -264,4 +286,5 @@ def inject_bundle(path: str | Path, entries: list[dict]) -> int:
                 f"Post-injection Naninovel verification failed for {entry['id']}: "
                 f"{verification.get('error_code')}: {verification.get('message', '')}"
             )
+    _neutralize_addressables_crc(data_dir, bundle_path)
     return changed

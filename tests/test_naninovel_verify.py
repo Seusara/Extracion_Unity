@@ -96,6 +96,59 @@ def test_verify_naninovel_entry_returns_controlled_failure_for_wrong_expected_te
     assert result["actual_text"] == "Different actual text"
 
 
+def test_verify_naninovel_entry_returns_controlled_failure_when_expected_text_differs_from_ir(fake_verifier, tmp_path):
+    result = naninovel_inject.verify_naninovel_entry(
+        tmp_path / "scene.bundle", ENTRY, "Something the IR never recorded"
+    )
+
+    assert result["ok"] is False
+    assert result["status"] == "fail"
+    assert result["error_code"] == "expected_text_mismatch"
+
+
+def test_verify_naninovel_entry_returns_controlled_failure_for_missing_entry_index(fake_verifier, tmp_path):
+    entry = {**ENTRY, "metadata": {**ENTRY["metadata"], "entry_index": 999}}
+
+    result = naninovel_inject.verify_naninovel_entry(tmp_path / "scene.bundle", entry, ENTRY["translated_text"])
+
+    assert result["ok"] is False
+    assert result["status"] == "fail"
+    assert result["error_code"] == "entry_not_found"
+
+
+def test_verify_naninovel_entry_returns_controlled_failure_for_missing_field(fake_verifier, tmp_path):
+    entry = {**ENTRY, "metadata": {**ENTRY["metadata"], "field": "MissingField"}}
+
+    result = naninovel_inject.verify_naninovel_entry(tmp_path / "scene.bundle", entry, ENTRY["translated_text"])
+
+    assert result["ok"] is False
+    assert result["status"] == "fail"
+    assert result["error_code"] == "field_not_found"
+
+
+def test_verify_naninovel_entry_returns_controlled_failure_for_wrong_asset_locator(fake_verifier, tmp_path):
+    bundle_data = SimpleNamespace(m_Container=[("OTHER_ASSET", SimpleNamespace(asset=SimpleNamespace(path_id=7)))])
+    fake_verifier.objects.append(
+        SimpleNamespace(type=SimpleNamespace(name="AssetBundle"), read=lambda: bundle_data)
+    )
+
+    result = naninovel_inject.verify_naninovel_entry(tmp_path / "scene.bundle", ENTRY, ENTRY["translated_text"])
+
+    assert result["ok"] is False
+    assert result["status"] == "fail"
+    assert result["error_code"] == "asset_not_found"
+
+
+def test_verify_naninovel_entry_returns_controlled_failure_for_unexpected_error(fake_verifier, tmp_path):
+    entry = {**ENTRY, "metadata": {key: value for key, value in ENTRY["metadata"].items() if key != "path_id"}}
+
+    result = naninovel_inject.verify_naninovel_entry(tmp_path / "scene.bundle", entry, ENTRY["translated_text"])
+
+    assert result["ok"] is False
+    assert result["status"] == "fail"
+    assert result["error_code"] == "verification_error"
+
+
 def test_verify_naninovel_entry_does_not_change_unrelated_records(monkeypatch, tmp_path):
     environment = FakeEnvironment()
     environment.objects = [

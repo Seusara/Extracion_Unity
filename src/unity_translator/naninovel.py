@@ -68,6 +68,7 @@ class NaninovelParser:
         self.unparsed_types: Counter[str] = Counter()
 
     def _known_types(self) -> set[tuple[str, str]]:
+        self.failed_assemblies: list[str] = []
         if dnfile is None:
             return set()
         known: set[tuple[str, str]] = set()
@@ -82,6 +83,7 @@ class NaninovelParser:
                     namespace = str(typedef.TypeNamespace)
                     known.add((dll.stem, f"{namespace}.{cls}" if namespace else cls))
             except Exception:
+                self.failed_assemblies.append(dll.stem)
                 continue
             finally:
                 if pe is not None:
